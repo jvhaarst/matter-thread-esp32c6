@@ -94,3 +94,37 @@ ThreadDiagnosticsService REST auto-registered xp=DEAD00BEEF00CAFE baseUrl=http:/
 That also shows OTBR's mDNS advertisement is visible on the LAN with `avahi-daemon` running
 on the same node. BLE is disabled in the server. One DCL vendor-list fetch timed out at
 start; the bundled snapshot was used.
+
+## 2026-11-16: Thread network formed, Home Assistant connected
+
+Done in the Home Assistant UI: the OpenThread Border Router integration
+(`http://192.168.0.240:8081`), the Thread integration, and the Matter integration
+(`ws://matter-server.thread.svc.cluster.local:5580/ws`, no add-on).
+
+| | |
+|---|---|
+| Network name | `ha-thread-fad4` |
+| Channel | 15 |
+| PAN ID | `0xfad4` |
+| Extended PAN ID | `c513a0887b2d31ee` |
+| Mesh-local prefix | `fd9f:fcf7:8bbe:458d::/64` |
+| Off-mesh routable prefix | `fd59:2881:fdab:1::/64` |
+| Preferred in Home Assistant | yes |
+
+`raspi5` is leader (RLOC16 `0x4000`, extended address `faca7128f20509b2`). The network key
+is in Home Assistant's `thread.datasets` store and in `/var/lib/otbr` on the node, and
+deliberately not in this repository.
+
+Route to the off-mesh prefix, learned from `raspi5`'s router advertisement:
+
+| Node | Route `fd59:2881:fdab:1::/64` | Ping to the border router's address in it |
+|---|---|---|
+| `raspi-k3s2` (NetworkManager, runs Home Assistant) | yes | ok |
+| `raspi-k3s` (NetworkManager) | yes | ok |
+| `mini-k3s` (systemd-networkd) | yes | not tested, no `ping` |
+| `ntp` (dhcpcd) | **no** | |
+
+So `accept_ra_rt_info_max_plen` is indeed not needed on the NetworkManager and networkd
+nodes. `ntp` would not reach Thread devices; nothing there needs to.
+
+The Matter server shows two WebSocket connections from Home Assistant and 0 nodes.
