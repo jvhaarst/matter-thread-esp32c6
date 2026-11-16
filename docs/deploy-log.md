@@ -230,3 +230,28 @@ routers under the preferred network `ha-thread-fad4`, with unique mDNS host name
 | `#D59D` | `raspi-k3s2-otbr.local.` | `raspi-k3s2` |
 
 The four hex digits are the end of each router's extended address.
+
+## 2026-11-16: the border routers talk to each other over Ethernet, not radio
+
+Correction to an earlier conclusion. The "link quality 3" between the border routers was
+read as proof that the radios reach each other between floors. It is not: all three have
+TREL enabled (Thread links over the LAN), and `multiradio neighbor list` shows which link
+type each neighbour uses. An average RSSI of exactly -20 is the placeholder TREL reports.
+
+| Seen from | Neighbour | Link types | Last radio RSSI |
+|---|---|---|---|
+| `raspi5` | `raspi-k3s` | 15.4 and TREL | |
+| `raspi5` | `raspi-k3s2` | TREL only | |
+| `raspi-k3s` | `raspi5` | 15.4 and TREL | -96 dBm |
+| `raspi-k3s` | `raspi-k3s2` | 15.4 and TREL | -95 dBm |
+| `raspi-k3s2` | `raspi5` | TREL only | |
+| `raspi-k3s2` | `raspi-k3s` | TREL only | |
+
+So radio between floors is marginal to absent, as expected with 20 cm reinforced-concrete
+floors: around -95 dBm is close to the receiver's limit. `raspi-k3s` hears both others, so
+it is presumably the middle floor. What this does prove: all three radios transmit (each is
+heard by at least one other over 15.4), and `raspi5` and `raspi-k3s` receive. That
+`raspi-k3s2`'s radio receives is not shown by this; a Thread device on its floor will show it.
+
+This is the reason for one border router per floor: the mesh between floors runs over
+Ethernet, each radio serves its own floor.

@@ -81,6 +81,19 @@ How to read it:
 - **Hits on one node only:** suspect that board, its extension cable or its USB port. Swap
   two boards and see whether the hits follow the board.
 
+## Radio coverage
+
+The floors are 20 cm reinforced concrete. Between floors the border routers reach each other
+over Ethernet (TREL), and their radio links are marginal (about -95 dBm) or absent. Each
+radio is there to serve its own floor. Check link types with
+`ot-ctl multiradio neighbor list`; an RSSI of exactly -20 in `ot-ctl neighbor table` is
+TREL's placeholder, not a radio measurement. Seeed documents "up to 80m" for BLE and Wi-Fi
+with the onboard antenna and nothing for Thread. OTBR transmits at 6 dBm.
+
+If a room on a floor turns out weak: first a mains-powered Thread device there, which
+routes for the mesh; then an external U.FL antenna on that floor's board, which needs
+`XIAO_USE_EXTERNAL_ANTENNA 1` in patch 0003 and a reflash.
+
 ## Not proven yet
 
 Nothing below has been tested. Each is a short job once a Matter-over-Thread device is at
