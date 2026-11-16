@@ -1,0 +1,10 @@
+# firmware build output; rebuild with firmware/build.sh
+firmware/out/
+
+# never commit live credentials or Thread network keys
+*.key
+*.pem
+.env
+dataset*.txt
+
+.DS_Store
