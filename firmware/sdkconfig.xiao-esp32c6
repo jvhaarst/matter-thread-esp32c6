@@ -6,3 +6,7 @@ CONFIG_OPENTHREAD_RCP_USB_SERIAL_JTAG=y
 
 # Same binary from the same commit, whoever builds it.
 CONFIG_APP_REPRODUCIBLE_BUILD=y
+
+# The second-stage bootloader shares the USB port with Spinel. Its log lines
+# would land in the Spinel stream and fill the USB FIFO before the host listens.
+CONFIG_BOOTLOADER_LOG_LEVEL_NONE=y

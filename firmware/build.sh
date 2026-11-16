@@ -50,6 +50,10 @@ source_date_epoch="$(git -C "${here}" log -1 --format=%ct 2>/dev/null || echo 0)
         out="/work/out/ot_rcp-${BOARD}"
         (cd build && esptool --chip "${TARGET}" merge-bin -o "${out}.bin" @flash_args)
 
+        # Kept so that a program counter from a crash or hang can be resolved to a function.
+        cp build/esp_ot_rcp.elf "${out}.elf"
+        cp sdkconfig "${out}.sdkconfig"
+
         ot="${IDF_PATH}/components/openthread/openthread"
         {
             echo "esp_idf=${actual}"
