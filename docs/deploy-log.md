@@ -147,3 +147,33 @@ label `thread-br=true`, Deployment applied. Both started on the first attempt.
 
 The Kingston USB stick that was in `raspi-k3s` is no longer attached; it was not mounted
 and nothing failed.
+
+## 2026-11-16: one Thread network on three border routers
+
+The two new border routers were added in Home Assistant as OpenThread Border Router
+integrations (`http://192.168.0.242:8081`, `http://192.168.0.241:8081`). Home Assistant gave
+both the preferred dataset; it still holds exactly one dataset.
+
+| Node | Role | RLOC16 | Extended address |
+|---|---|---|---|
+| `raspi5` | leader | `0x4000` | `faca7128f20509b2` |
+| `raspi-k3s` | router | `0xac00` | `ce4c4b4348fc4291` |
+| `raspi-k3s2` | router | `0x4800` | `be3ed0b14982d59d` |
+
+All three: channel 15, `ha-thread-fad4`, extended PAN ID `c513a0887b2d31ee`, partition
+`370331428`, identical active dataset (same SHA-256 of the TLVs), three entries in the
+router table. Each advertises a default route into the mesh (`::/0 s med`); the off-mesh
+prefix `fd59:2881:fdab:1::/64` is still published by `raspi5` alone.
+
+Routes to that prefix on the LAN side, which is where the network managers differ:
+
+| Node | Network manager | Next hops for `fd59:2881:fdab:1::/64` |
+|---|---|---|
+| `mini-k3s` | systemd-networkd | all three border routers |
+| `raspi-k3s2` | NetworkManager 1.52 | two (the other two border routers), as one multipath route |
+| `raspi-k3s` | NetworkManager 1.42 | one, `raspi5` only |
+| `raspi5` | NetworkManager 1.42 | none from router advertisements; it has the direct `wpan0` route |
+
+This is the NetworkManager limitation the Matter server documentation warns about, visible
+on the two Debian 12 nodes. The Matter server currently runs on `raspi5`, so the failover
+test has to show what happens to its route when the border router on `raspi5` stops.
