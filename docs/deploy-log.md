@@ -80,3 +80,17 @@ anything else had opened the port: it answered four times out of four. One trial
 Deployment re-applied with the `/dev/serial/by-id` directory mount. OTBR started on the
 first attempt, REST up within 5 s, state `disabled`. The settings file
 `/var/lib/otbr/thread/0_90649bfffeab3f98.data` from the earlier run was still there.
+
+## 2026-11-16: Matter server
+
+Applied `k8s/matter-server/`. `matter-server/1.6.0` runs on `raspi5`, answers on port 5580
+directly and through the Service (`10.43.213.179`). It found the border router by mDNS and
+registered its REST API on its own:
+
+```
+ThreadDiagnosticsService REST auto-registered xp=DEAD00BEEF00CAFE baseUrl=http://192.168.0.240:8081
+```
+
+That also shows OTBR's mDNS advertisement is visible on the LAN with `avahi-daemon` running
+on the same node. BLE is disabled in the server. One DCL vendor-list fetch timed out at
+start; the bundled snapshot was used.
