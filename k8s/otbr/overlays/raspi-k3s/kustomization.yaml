@@ -1,0 +1,20 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ../../base
+nameSuffix: -raspi-k3s
+labels:
+  - pairs:
+      thread-br/node: raspi-k3s
+    includeSelectors: true
+patches:
+  - target:
+      kind: Deployment
+      name: otbr
+    patch: |-
+      - op: replace
+        path: /spec/template/spec/nodeSelector/kubernetes.io~1hostname
+        value: raspi-k3s
+      - op: replace
+        path: /spec/template/spec/containers/0/env/0/value
+        value: /dev/serial/by-id/usb-Espressif_USB_JTAG_serial_debug_unit_90:64:9B:AB:40:64-if00

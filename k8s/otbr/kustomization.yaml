@@ -3,6 +3,6 @@ kind: Kustomization
 resources:
   - namespace.yaml
   - overlays/raspi5
-  # Added once their radios are flashed and plugged in:
-  # - overlays/raspi-k3s
+  - overlays/raspi-k3s
+  # Added once its radio is flashed and plugged in:
   # - overlays/raspi-k3s2
