@@ -16,5 +16,5 @@ patches:
         path: /spec/template/spec/nodeSelector/kubernetes.io~1hostname
         value: raspi5
       - op: replace
-        path: /spec/template/spec/volumes/0/hostPath/path
+        path: /spec/template/spec/containers/0/env/0/value
         value: /dev/serial/by-id/usb-Espressif_USB_JTAG_serial_debug_unit_90:64:9B:AB:3F:98-if00

@@ -36,10 +36,12 @@ spec:
             # character device (the radio) when the device cgroup allows it, and
             # without a device plugin only a privileged container gets that.
             # It also covers /dev/net/tun and the ip6tables/ipset setup.
+            # A privileged container gets the host's device nodes at creation,
+            # which is where the by-id symlink below points (../../ttyACM0).
             privileged: true
           env:
             - name: DEVICE
-              value: /dev/ttyOTBR
+              value: REPLACED-BY-OVERLAY
             # Meaningless on USB CDC, but otbr-agent wants a number.
             - name: BAUDRATE
               value: "460800"
@@ -88,14 +90,19 @@ spec:
               memory: 256Mi
           volumeMounts:
             - name: radio
-              mountPath: /dev/ttyOTBR
+              mountPath: /dev/serial/by-id
+              readOnly: true
             - name: state
               mountPath: /data
       volumes:
+        # The directory of symlinks, never the radio's own path. With the device
+        # itself as hostPath, the container runtime creates a directory in its
+        # place when a restart finds the radio unplugged, and udev can then no
+        # longer create the symlink when the radio comes back.
         - name: radio
           hostPath:
-            path: REPLACED-BY-OVERLAY
-            type: CharDevice
+            path: /dev/serial/by-id
+            type: Directory
         # Thread credentials stay on the node that holds the radio.
         - name: state
           hostPath:
