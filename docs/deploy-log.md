@@ -177,3 +177,17 @@ Routes to that prefix on the LAN side, which is where the network managers diffe
 This is the NetworkManager limitation the Matter server documentation warns about, visible
 on the two Debian 12 nodes. The Matter server currently runs on `raspi5`, so the failover
 test has to show what happens to its route when the border router on `raspi5` stops.
+
+## 2026-11-16: monitoring
+
+- Dashboard "Thread border routers" applied as ConfigMap `thread-border-routers-dashboard`
+  in `monitoring`; the Grafana sidecar wrote `thread-border-routers.json`.
+- Alert group `thread` (three rules) added to `upgrade_nodes/k3s/monitoring/values.yaml`
+  and rolled out with `helm upgrade` (chart 0.98.1 unchanged, revision 47 to 48), followed
+  by a restart of Grafana. `helm diff` had shown the Grafana volume losing its `volumeName`;
+  that is an artefact of the chart reading it with `lookup`, and the claim stayed bound.
+- After one evaluation interval: `Thread;thread` holds 3 rules, 0 evaluation failures.
+
+One alert was firing afterwards, `journald-host-missing`. It is not one of these rules and
+not caused by this work: `lora-kastje` shipped its last journal line at 17:50:15 UTC, ten
+minutes before this project's first command.

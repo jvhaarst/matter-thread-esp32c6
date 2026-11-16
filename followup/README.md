@@ -36,8 +36,16 @@ radios. The source is `dashboard-thread.json`; `build-configmap.sh` embeds it in
 `dashboard-configmap.yaml`, which is what gets applied.
 
 **Three alert rules** in `alert-rules.yaml`: an RCP failure line, fewer than 4 pods ready,
-a container restart. They are a group to append to the Grafana provisioning in
-`upgrade_nodes/k3s/monitoring/values.yaml`, not something applied from this repository.
+a container restart. Grafana's alerting is provisioned from the Helm values of the
+monitoring release, so the group lives in `upgrade_nodes/k3s/monitoring/values.yaml`
+(group `thread`, folder `Thread`); the file here is its source. Change both together, then
+run the Helm upgrade documented there and restart Grafana.
+
+Applied 2026-11-16: dashboard ConfigMap `thread-border-routers-dashboard` in `monitoring`,
+and Helm release `victoria-metrics` revision 48 with the alert group. After the restart
+Grafana reported 3 rules in `Thread;thread` and 0 evaluation failures. Not done: nobody has
+looked at the dashboard in a browser yet, and no rule has ever fired, so the path from a
+firing rule to a mail is unproven for these three.
 
 Where the data comes from, checked on 2026-11-16:
 
@@ -120,11 +128,13 @@ Debian 12 nodes to Debian 13 would fix it at the root.
 
 ## Open questions
 
+- **USB sticks.** The Kingston DataTraveler sticks on `raspi5` and `raspi-k3s2` (and the one
+  already pulled from `raspi-k3s`) are the former Longhorn disks, label `longhorn`, retired
+  on 2026-10-28. Checked 2026-11-16: not mounted, not in `/etc/fstab`, no open handles, not
+  a Longhorn disk on the node. They can be removed.
 - **1-Wire adapter on `raspi5`.** The radio went into the USB port of the DS1490F adapter
   (`04fa:2490`), which has been unplugged since. The node still carries `w1-sensor=true`.
   Whatever read those sensors has lost them.
-- **USB stick on `raspi-k3s`.** A Kingston DataTraveler was unplugged when the radio went
-  in. It was not mounted and nothing failed, but its purpose is unknown.
 - **Unauthenticated ports on the LAN.** OTBR's REST API (8081 on three nodes) hands out the
   Thread network key, and the Matter server (5580) accepts commands, from anyone on the LAN.
   Accepted for now.
