@@ -1,0 +1,351 @@
+From 970514e28c49ed48e5bb947f80f05bd3929ae472 Mon Sep 17 00:00:00 2001
+From: Chris Wedgwood <cw@f00f.org>
+Date: Sun, 1 Nov 2026 18:07:30 -0800
+Subject: [PATCH] fix(usb_serial_jtag): stop false disconnects from SOF
+ read/clear race
+
+The connection monitor tick hook reads SOF_INT_RAW and then clears it in
+a separate write. A SOF that arrives between the read and the clear is
+cleared without being seen. The FreeRTOS tick (chip crystal) and the
+host's 1 ms frames are independent clocks, so their phase drifts through
+that window periodically and the hook sees false "no SOF" samples while
+the host is attached and sending frames. The hardware frame number shows
+it: on every such sample the received frame number had advanced.
+
+The allowance of ALLOWED_NO_SOF_TICKS is also only refilled on
+reconnect, so isolated misses accumulate over the whole uptime. Together
+these report a disconnect while the host is attached and streaming,
+after which reads and writes fail with EIO (fatal for an OpenThread RCP
+using the USB-Serial/JTAG port as its Spinel link:
+esp_openthread_uart_process() returns ESP_FAIL and the main loop hits
+assert(false)).
+
+Fix:
+- add usb_serial_jtag_ll_get_frame_num() and treat a change in the
+  received frame number as a SOF; it advances with every SOF and cannot
+  be lost between read and clear;
+- refill the allowance on every SOF while connected, so only consecutive
+  SOF-less ticks count.
+
+Measured with per-minute counters (ticks, SOF-less ticks, disconnects,
+frames) on OpenThread RCPs using USB-Serial/JTAG. Offset = (frames -
+ticks) / ticks between chip and host.
+
+Without the fix (current code):
+- ESP32-C5 v1.0, Windows PC, -3.0 ppm: 176 false disconnects in 6.5 h
+- ESP32-H2 v0.2, same PC, ~0.9 ppm: 80 in 3.0 h
+
+With the fix (target: 0), 0 false disconnects and 0 EIO on every board:
+- ESP32-C5 v1.0: Windows PC (-3.0 ppm), 4.4 h; Intel Alder Lake xHCI
+  (+25.9 ppm), 19.9 h
+- ESP32-H2 v0.2: Raspberry Pi 4 VL805 (-129 ppm, a window crossing every
+  7.5 s), 10.8 h; Intel ICH10 UHCI (-2.7 ppm), 11.2 h
+- ESP32-C6 v0.1: Raspberry Pi 4 VL805 (-140 ppm), 6.3 h, ~3,200
+  crossings
+- ESP32-C6 v0.0: Intel ICH10 UHCI (~0 ppm, drifting through zero),
+  6.9 h; each crossing lasted a whole minute (770 and 1,522 flag
+  misses)
+In total about 10,000 window crossings and about 2,000 isolated true
+misses without a false disconnect. The refill keeps the isolated misses
+(about one a minute at -129 ppm) from accumulating into a disconnect;
+with the frame-number check alone the C5 still had 2 false disconnects
+in 4.2 h.
+
+Compiled and linked for esp32c3/c5/c6/c61/h2/h21/h4/p4/s3/s31.
+
+Related: #18490, #13935
+---
+ .../src/usb_serial_jtag_connection_monitor.c     | 16 ++++++++++++++++
+ .../esp32c3/include/hal/usb_serial_jtag_ll.h     | 13 +++++++++++++
+ .../esp32c5/include/hal/usb_serial_jtag_ll.h     | 13 +++++++++++++
+ .../esp32c6/include/hal/usb_serial_jtag_ll.h     | 13 +++++++++++++
+ .../esp32c61/include/hal/usb_serial_jtag_ll.h    | 13 +++++++++++++
+ .../esp32h2/include/hal/usb_serial_jtag_ll.h     | 13 +++++++++++++
+ .../esp32h21/include/hal/usb_serial_jtag_ll.h    | 13 +++++++++++++
+ .../esp32h4/include/hal/usb_serial_jtag_ll.h     | 13 +++++++++++++
+ .../esp32p4/include/hal/usb_serial_jtag_ll.h     | 13 +++++++++++++
+ .../esp32s3/include/hal/usb_serial_jtag_ll.h     | 13 +++++++++++++
+ .../esp32s31/include/hal/usb_serial_jtag_ll.h    | 13 +++++++++++++
+ 11 files changed, 146 insertions(+)
+
+diff --git a/components/esp_driver_usb_serial_jtag/src/usb_serial_jtag_connection_monitor.c b/components/esp_driver_usb_serial_jtag/src/usb_serial_jtag_connection_monitor.c
+index e2dcdf11996e..df8b162bceec 100644
+--- a/components/esp_driver_usb_serial_jtag/src/usb_serial_jtag_connection_monitor.c
++++ b/components/esp_driver_usb_serial_jtag/src/usb_serial_jtag_connection_monitor.c
+@@ -27,6 +27,7 @@ static esp_pm_lock_handle_t s_usb_serial_jtag_pm_lock;
+ #define ALLOWED_NO_SOF_TICKS                pdMS_TO_TICKS(USJ_DISCONNECT_CONFIRM_PERIOD_MS)
+ 
+ static uint32_t remaining_allowed_no_sof_ticks;
++static uint32_t s_last_frame_num;
+ 
+ static __attribute__((unused)) const char *USB_SERIAL_JTAG_CONN_MONITOR_TAG = "usb_serial_jtag";
+ 
+@@ -44,6 +45,20 @@ static void IRAM_ATTR usb_serial_jtag_sof_tick_hook(void)
+     // Consider it is disconnected only if SOF intr bit is not raised within (ALLOWED_NO_SOF_TICKS + 1) tick periods
+     bool sof_received = (usb_serial_jtag_ll_get_intraw_mask() & USB_SERIAL_JTAG_INTR_SOF);
+     usb_serial_jtag_ll_clr_intsts_mask(USB_SERIAL_JTAG_INTR_SOF);
++    // The SOF bit is read and cleared in two steps: a SOF arriving between them is cleared without being seen.
++    // The tick and the host's 1 ms frames run on independent clocks a few ppm apart, so their phase drifts through
++    // that window periodically (every few minutes) and produces runs of false "no SOF" samples. The frame number
++    // advances with every received SOF and is not lost this way, so a change in it also counts as a SOF.
++    uint32_t frame_num = usb_serial_jtag_ll_get_frame_num();
++    if (frame_num != s_last_frame_num) {
++        s_last_frame_num = frame_num;
++        sof_received = true;
++    }
++    // A SOF while connected restores the tolerance, so only consecutive SOF-less ticks lead to a disconnection.
++    // Otherwise isolated misses (e.g. a delayed tick) accumulate over the whole uptime.
++    if (sof_received && s_usb_serial_jtag_conn_status) {
++        remaining_allowed_no_sof_ticks = ALLOWED_NO_SOF_TICKS;
++    }
+     if (s_usb_serial_jtag_conn_status != sof_received) {
+         if (!sof_received) {
+             if (remaining_allowed_no_sof_ticks > 0) {
+@@ -86,6 +101,7 @@ ESP_SYSTEM_INIT_FN(usb_serial_jtag_conn_status_init, SECONDARY, BIT(0), 230)
+ #endif
+     s_usb_serial_jtag_conn_status = true;
+     remaining_allowed_no_sof_ticks = ALLOWED_NO_SOF_TICKS;
++    s_last_frame_num = usb_serial_jtag_ll_get_frame_num();
+ 
+     return esp_register_freertos_tick_hook(usb_serial_jtag_sof_tick_hook);
+ }
+diff --git a/components/esp_hal_usb/esp32c3/include/hal/usb_serial_jtag_ll.h b/components/esp_hal_usb/esp32c3/include/hal/usb_serial_jtag_ll.h
+index 03df9573c345..05f95f06829e 100644
+--- a/components/esp_hal_usb/esp32c3/include/hal/usb_serial_jtag_ll.h
++++ b/components/esp_hal_usb/esp32c3/include/hal/usb_serial_jtag_ll.h
+@@ -81,6 +81,19 @@ static inline __attribute__((always_inline)) uint32_t usb_serial_jtag_ll_get_int
+     return USB_SERIAL_JTAG.int_raw.val;
+ }
+ 
++/**
++ * @brief  Get the frame number of the most recently received USB SOF packet
++ *
++ * The 11-bit frame number advances with every SOF received from the host, so unlike the SOF raw
++ * interrupt bit it cannot be lost between reading and clearing.
++ *
++ * @return Frame number (0 to 2047)
++ */
++static inline __attribute__((always_inline)) uint32_t usb_serial_jtag_ll_get_frame_num(void)
++{
++    return USB_SERIAL_JTAG.fram_num.sof_frame_index;
++}
++
+ /**
+  * @brief  Clear the USB_SERIAL_JTAG interrupt status based on the given mask.
+  *
+diff --git a/components/esp_hal_usb/esp32c5/include/hal/usb_serial_jtag_ll.h b/components/esp_hal_usb/esp32c5/include/hal/usb_serial_jtag_ll.h
+index 25244094687f..4e3a19975b18 100644
+--- a/components/esp_hal_usb/esp32c5/include/hal/usb_serial_jtag_ll.h
++++ b/components/esp_hal_usb/esp32c5/include/hal/usb_serial_jtag_ll.h
+@@ -81,6 +81,19 @@ static inline __attribute__((always_inline)) uint32_t usb_serial_jtag_ll_get_int
+     return USB_SERIAL_JTAG.int_raw.val;
+ }
+ 
++/**
++ * @brief  Get the frame number of the most recently received USB SOF packet
++ *
++ * The 11-bit frame number advances with every SOF received from the host, so unlike the SOF raw
++ * interrupt bit it cannot be lost between reading and clearing.
++ *
++ * @return Frame number (0 to 2047)
++ */
++static inline __attribute__((always_inline)) uint32_t usb_serial_jtag_ll_get_frame_num(void)
++{
++    return USB_SERIAL_JTAG.fram_num.sof_frame_index;
++}
++
+ /**
+  * @brief  Clear the USB_SERIAL_JTAG interrupt status based on the given mask.
+  *
+diff --git a/components/esp_hal_usb/esp32c6/include/hal/usb_serial_jtag_ll.h b/components/esp_hal_usb/esp32c6/include/hal/usb_serial_jtag_ll.h
+index e037297f5555..cbd7aa791052 100644
+--- a/components/esp_hal_usb/esp32c6/include/hal/usb_serial_jtag_ll.h
++++ b/components/esp_hal_usb/esp32c6/include/hal/usb_serial_jtag_ll.h
+@@ -81,6 +81,19 @@ static inline __attribute__((always_inline)) uint32_t usb_serial_jtag_ll_get_int
+     return USB_SERIAL_JTAG.int_raw.val;
+ }
+ 
++/**
++ * @brief  Get the frame number of the most recently received USB SOF packet
++ *
++ * The 11-bit frame number advances with every SOF received from the host, so unlike the SOF raw
++ * interrupt bit it cannot be lost between reading and clearing.
++ *
++ * @return Frame number (0 to 2047)
++ */
++static inline __attribute__((always_inline)) uint32_t usb_serial_jtag_ll_get_frame_num(void)
++{
++    return USB_SERIAL_JTAG.fram_num.sof_frame_index;
++}
++
+ /**
+  * @brief  Clear the USB_SERIAL_JTAG interrupt status based on the given mask.
+  *
+diff --git a/components/esp_hal_usb/esp32c61/include/hal/usb_serial_jtag_ll.h b/components/esp_hal_usb/esp32c61/include/hal/usb_serial_jtag_ll.h
+index 1333b02a12cc..1df48b24ee24 100644
+--- a/components/esp_hal_usb/esp32c61/include/hal/usb_serial_jtag_ll.h
++++ b/components/esp_hal_usb/esp32c61/include/hal/usb_serial_jtag_ll.h
+@@ -81,6 +81,19 @@ static inline __attribute__((always_inline)) uint32_t usb_serial_jtag_ll_get_int
+     return USB_SERIAL_JTAG.int_raw.val;
+ }
+ 
++/**
++ * @brief  Get the frame number of the most recently received USB SOF packet
++ *
++ * The 11-bit frame number advances with every SOF received from the host, so unlike the SOF raw
++ * interrupt bit it cannot be lost between reading and clearing.
++ *
++ * @return Frame number (0 to 2047)
++ */
++static inline __attribute__((always_inline)) uint32_t usb_serial_jtag_ll_get_frame_num(void)
++{
++    return USB_SERIAL_JTAG.fram_num.sof_frame_index;
++}
++
+ /**
+  * @brief  Clear the USB_SERIAL_JTAG interrupt status based on the given mask.
+  *
+diff --git a/components/esp_hal_usb/esp32h2/include/hal/usb_serial_jtag_ll.h b/components/esp_hal_usb/esp32h2/include/hal/usb_serial_jtag_ll.h
+index 0c88b81dabf4..ab447c243f1c 100644
+--- a/components/esp_hal_usb/esp32h2/include/hal/usb_serial_jtag_ll.h
++++ b/components/esp_hal_usb/esp32h2/include/hal/usb_serial_jtag_ll.h
+@@ -81,6 +81,19 @@ static inline __attribute__((always_inline)) uint32_t usb_serial_jtag_ll_get_int
+     return USB_SERIAL_JTAG.int_raw.val;
+ }
+ 
++/**
++ * @brief  Get the frame number of the most recently received USB SOF packet
++ *
++ * The 11-bit frame number advances with every SOF received from the host, so unlike the SOF raw
++ * interrupt bit it cannot be lost between reading and clearing.
++ *
++ * @return Frame number (0 to 2047)
++ */
++static inline __attribute__((always_inline)) uint32_t usb_serial_jtag_ll_get_frame_num(void)
++{
++    return USB_SERIAL_JTAG.fram_num.sof_frame_index;
++}
++
+ /**
+  * @brief  Clear the USB_SERIAL_JTAG interrupt status based on the given mask.
+  *
+diff --git a/components/esp_hal_usb/esp32h21/include/hal/usb_serial_jtag_ll.h b/components/esp_hal_usb/esp32h21/include/hal/usb_serial_jtag_ll.h
+index 53074db5babc..be1627c9bd18 100644
+--- a/components/esp_hal_usb/esp32h21/include/hal/usb_serial_jtag_ll.h
++++ b/components/esp_hal_usb/esp32h21/include/hal/usb_serial_jtag_ll.h
+@@ -81,6 +81,19 @@ static inline __attribute__((always_inline)) uint32_t usb_serial_jtag_ll_get_int
+     return USB_SERIAL_JTAG.serial_jtag_int_raw.val;
+ }
+ 
++/**
++ * @brief  Get the frame number of the most recently received USB SOF packet
++ *
++ * The 11-bit frame number advances with every SOF received from the host, so unlike the SOF raw
++ * interrupt bit it cannot be lost between reading and clearing.
++ *
++ * @return Frame number (0 to 2047)
++ */
++static inline __attribute__((always_inline)) uint32_t usb_serial_jtag_ll_get_frame_num(void)
++{
++    return USB_SERIAL_JTAG.serial_jtag_fram_num.serial_jtag_sof_frame_index;
++}
++
+ /**
+ * @brief  Clear the USB_SERIAL_JTAG interrupt status based on the given mask.
+ *
+diff --git a/components/esp_hal_usb/esp32h4/include/hal/usb_serial_jtag_ll.h b/components/esp_hal_usb/esp32h4/include/hal/usb_serial_jtag_ll.h
+index eb70a4e82e60..a084557b5421 100644
+--- a/components/esp_hal_usb/esp32h4/include/hal/usb_serial_jtag_ll.h
++++ b/components/esp_hal_usb/esp32h4/include/hal/usb_serial_jtag_ll.h
+@@ -81,6 +81,19 @@ static inline __attribute__((always_inline)) uint32_t usb_serial_jtag_ll_get_int
+     return USB_SERIAL_JTAG.serial_jtag_int_raw.val;
+ }
+ 
++/**
++ * @brief  Get the frame number of the most recently received USB SOF packet
++ *
++ * The 11-bit frame number advances with every SOF received from the host, so unlike the SOF raw
++ * interrupt bit it cannot be lost between reading and clearing.
++ *
++ * @return Frame number (0 to 2047)
++ */
++static inline __attribute__((always_inline)) uint32_t usb_serial_jtag_ll_get_frame_num(void)
++{
++    return USB_SERIAL_JTAG.serial_jtag_fram_num.serial_jtag_sof_frame_index;
++}
++
+ /**
+  * @brief  Clear the USB_SERIAL_JTAG interrupt status based on the given mask.
+  *
+diff --git a/components/esp_hal_usb/esp32p4/include/hal/usb_serial_jtag_ll.h b/components/esp_hal_usb/esp32p4/include/hal/usb_serial_jtag_ll.h
+index 78f14ac9d21f..f45251d5a4a8 100644
+--- a/components/esp_hal_usb/esp32p4/include/hal/usb_serial_jtag_ll.h
++++ b/components/esp_hal_usb/esp32p4/include/hal/usb_serial_jtag_ll.h
+@@ -85,6 +85,19 @@ static inline __attribute__((always_inline)) uint32_t usb_serial_jtag_ll_get_int
+     return USB_SERIAL_JTAG.int_raw.val;
+ }
+ 
++/**
++ * @brief  Get the frame number of the most recently received USB SOF packet
++ *
++ * The 11-bit frame number advances with every SOF received from the host, so unlike the SOF raw
++ * interrupt bit it cannot be lost between reading and clearing.
++ *
++ * @return Frame number (0 to 2047)
++ */
++static inline __attribute__((always_inline)) uint32_t usb_serial_jtag_ll_get_frame_num(void)
++{
++    return USB_SERIAL_JTAG.fram_num.serial_jtag_sof_frame_index;
++}
++
+ /**
+  * @brief  Clear the USB_SERIAL_JTAG interrupt status based on the given mask.
+  *
+diff --git a/components/esp_hal_usb/esp32s3/include/hal/usb_serial_jtag_ll.h b/components/esp_hal_usb/esp32s3/include/hal/usb_serial_jtag_ll.h
+index 21eb199567be..01051b72c414 100644
+--- a/components/esp_hal_usb/esp32s3/include/hal/usb_serial_jtag_ll.h
++++ b/components/esp_hal_usb/esp32s3/include/hal/usb_serial_jtag_ll.h
+@@ -83,6 +83,19 @@ static inline __attribute__((always_inline)) uint32_t usb_serial_jtag_ll_get_int
+     return USB_SERIAL_JTAG.int_raw.val;
+ }
+ 
++/**
++ * @brief  Get the frame number of the most recently received USB SOF packet
++ *
++ * The 11-bit frame number advances with every SOF received from the host, so unlike the SOF raw
++ * interrupt bit it cannot be lost between reading and clearing.
++ *
++ * @return Frame number (0 to 2047)
++ */
++static inline __attribute__((always_inline)) uint32_t usb_serial_jtag_ll_get_frame_num(void)
++{
++    return USB_SERIAL_JTAG.fram_num.sof_frame_index;
++}
++
+ /**
+  * @brief  Clear the USB_SERIAL_JTAG interrupt status based on the given mask.
+  *
+diff --git a/components/esp_hal_usb/esp32s31/include/hal/usb_serial_jtag_ll.h b/components/esp_hal_usb/esp32s31/include/hal/usb_serial_jtag_ll.h
+index b933a4c646e1..3eb3856f0958 100644
+--- a/components/esp_hal_usb/esp32s31/include/hal/usb_serial_jtag_ll.h
++++ b/components/esp_hal_usb/esp32s31/include/hal/usb_serial_jtag_ll.h
+@@ -83,6 +83,19 @@ static inline __attribute__((always_inline)) uint32_t usb_serial_jtag_ll_get_int
+     return USB_SERIAL_JTAG.int_raw.val;
+ }
+ 
++/**
++ * @brief  Get the frame number of the most recently received USB SOF packet
++ *
++ * The 11-bit frame number advances with every SOF received from the host, so unlike the SOF raw
++ * interrupt bit it cannot be lost between reading and clearing.
++ *
++ * @return Frame number (0 to 2047)
++ */
++static inline __attribute__((always_inline)) uint32_t usb_serial_jtag_ll_get_frame_num(void)
++{
++    return USB_SERIAL_JTAG.fram_num.sof_frame_index;
++}
++
+ /**
+  * @brief  Clear the USB_SERIAL_JTAG interrupt status based on the given mask.
+  *

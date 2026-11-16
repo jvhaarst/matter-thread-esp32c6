@@ -1,0 +1,8 @@
+# Added on top of the ot_rcp example's own sdkconfig.defaults.
+
+# Spinel over the chip's built-in USB Serial/JTAG port: the XIAO ESP32-C6 has no
+# USB-UART bridge, its USB-C connector goes straight to the SoC.
+CONFIG_OPENTHREAD_RCP_USB_SERIAL_JTAG=y
+
+# Same binary from the same commit, whoever builds it.
+CONFIG_APP_REPRODUCIBLE_BUILD=y

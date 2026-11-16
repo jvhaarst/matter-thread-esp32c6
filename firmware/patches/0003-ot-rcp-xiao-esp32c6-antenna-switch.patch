@@ -1,0 +1,43 @@
+--- a/examples/openthread/ot_rcp/main/esp_ot_rcp.c
++++ b/examples/openthread/ot_rcp/main/esp_ot_rcp.c
+@@ -15,6 +15,7 @@
+ #include <stdio.h>
+ #include <unistd.h>
+ 
++#include "driver/gpio.h"
+ #include "esp_event.h"
+ #include "nvs_flash.h"
+ #include "esp_openthread.h"
+@@ -43,6 +44,23 @@
+ 
+ extern void otAppNcpInit(otInstance *instance);
+ 
++// Seeed Studio XIAO ESP32-C6 RF switch: GPIO3 low enables the switch, GPIO14 selects the antenna
++// (low = onboard ceramic antenna, high = U.FL connector).
++#define XIAO_RF_SWITCH_ENABLE_GPIO GPIO_NUM_3
++#define XIAO_RF_SWITCH_SELECT_GPIO GPIO_NUM_14
++#define XIAO_USE_EXTERNAL_ANTENNA  0
++
++static void xiao_antenna_init(void)
++{
++    const gpio_config_t io_config = {
++        .pin_bit_mask = BIT64(XIAO_RF_SWITCH_ENABLE_GPIO) | BIT64(XIAO_RF_SWITCH_SELECT_GPIO),
++        .mode = GPIO_MODE_OUTPUT,
++    };
++    ESP_ERROR_CHECK(gpio_config(&io_config));
++    ESP_ERROR_CHECK(gpio_set_level(XIAO_RF_SWITCH_ENABLE_GPIO, 0));
++    ESP_ERROR_CHECK(gpio_set_level(XIAO_RF_SWITCH_SELECT_GPIO, XIAO_USE_EXTERNAL_ANTENNA));
++}
++
+ void app_main(void)
+ {
+     // Used eventfds:
+@@ -52,6 +70,8 @@
+         .max_fds = 2,
+     };
+ 
++    xiao_antenna_init();
++
+     ESP_ERROR_CHECK(nvs_flash_init());
+     ESP_ERROR_CHECK(esp_event_loop_create_default());
+     ESP_ERROR_CHECK(esp_vfs_eventfd_register(&eventfd_config));
