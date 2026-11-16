@@ -128,6 +128,11 @@ Debian 12 nodes to Debian 13 would fix it at the root.
 
 ## Open questions
 
+- **Home Assistant is on host networking since 2026-11-16**, so that it can discover the
+  border routers. Its trusted proxies are in `/config/.storage/http`, not in
+  `configuration.yaml`; see `upgrade_nodes/k3s/home-assistant/README.md`. It now sees the
+  node's Bluetooth adapter: leave a "discovered: Bluetooth" card alone, `theengs-gateway`
+  uses that adapter.
 - **USB sticks.** The Kingston DataTraveler sticks on `raspi5` and `raspi-k3s2` (and the one
   already pulled from `raspi-k3s`) are the former Longhorn disks, label `longhorn`, retired
   on 2026-10-28. Checked 2026-11-16: not mounted, not in `/etc/fstab`, no open handles, not

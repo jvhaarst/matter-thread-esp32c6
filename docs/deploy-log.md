@@ -191,3 +191,31 @@ test has to show what happens to its route when the border router on `raspi5` st
 One alert was firing afterwards, `journald-host-missing`. It is not one of these rules and
 not caused by this work: `lora-kastje` shipped its last journal line at 17:50:15 UTC, ten
 minutes before this project's first command.
+
+## 2026-11-16: Home Assistant moved to host networking
+
+Reason: the Thread panel in Home Assistant showed "no border routers found" for the
+preferred network, although all three were in the mesh and advertised `_meshcop._udp` on the
+LAN (seen from the workstation). Home Assistant fills that list from mDNS, which does not
+reach a pod on the cluster network. The design had left this open.
+
+Applied: `hostNetwork: true` and `dnsPolicy: ClusterFirstWithHostNet` in
+`upgrade_nodes/k3s/home-assistant/values.yaml`, Helm release `home-assistant` revision 7.
+The Helm diff was those two lines in the StatefulSet and nothing else.
+
+**It took the web UI down for about three minutes.** With host networking, Traefik reaches
+Home Assistant from a node's LAN address, and Home Assistant refused it as an untrusted
+proxy: every request through `ha.vanhaarst.net` answered 400. I had predicted that and added
+the node addresses to `http.trusted_proxies` in `configuration.yaml` first, but Home
+Assistant no longer reads that block; its HTTP settings live in `/config/.storage/http`.
+Adding the addresses there and restarting the pod fixed it. The full account is in
+`upgrade_nodes/k3s/home-assistant/README.md`.
+
+Checked afterwards: 30 of 30 requests from `vpn.vanhaarst.net` and 30 of 30 from the LAN
+answer 200; port 8123 is not reachable from outside; no untrusted-proxy lines since the
+restart; the pod resolves `matter-server.thread.svc.cluster.local` and reaches the OTBR REST
+API. Not checked by me: that the Thread panel now lists the border routers, which needs a
+look at the UI.
+
+Side effect: Home Assistant now sees the node's Bluetooth adapter `hci0`, which
+`theengs-gateway` uses.

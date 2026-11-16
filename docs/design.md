@@ -69,7 +69,8 @@ here. See [`inventory.md`](inventory.md).
 
 - `ghcr.io/matter-js/matterjs-server` 1.6.0, `hostNetwork: true`, `PRIMARY_INTERFACE=eth0`,
   Longhorn volume, same node affinity as Home Assistant (`raspi5`, `raspi-k3s2`).
-- Home Assistant stays on the pod network at first. The OTBR integrations are added by URL
+- (Superseded on 2026-11-16: Home Assistant runs on host networking, because the Thread
+  panel needs mDNS. See the deploy log.) Home Assistant stays on the pod network at first. The OTBR integrations are added by URL
   and the Matter integration points at `ws://<node>:5580/ws`. Home Assistant moves to
   `hostNetwork` only if Thread discovery in the UI needs it.
 - The Thread network is formed on `raspi5`; the other two border routers get the same
