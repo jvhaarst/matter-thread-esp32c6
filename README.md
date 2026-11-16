@@ -6,7 +6,11 @@ Studio XIAO ESP32-C6 boards running OpenThread RCP firmware, plugged into the Pi
 
 - [`docs/design.md`](docs/design.md): what is being built and why.
 - [`docs/inventory.md`](docs/inventory.md): the cluster and upstream versions as found.
+- [`docs/deploy-log.md`](docs/deploy-log.md): what was applied, in order, and what went wrong.
+- [`followup/README.md`](followup/README.md): what runs, what is still unproven, what to watch.
 - [`firmware/`](firmware/): reproducible RCP firmware build.
+- [`k8s/`](k8s/): border routers, Matter server, Grafana dashboard and alert rules.
+- [`nodes/`](nodes/): the sysctl file for border-router nodes.
 
 ## Firmware
 

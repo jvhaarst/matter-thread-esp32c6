@@ -1,0 +1,129 @@
+# Grafana alert rules for the Thread border routers.
+#
+# NOT applied from here. Grafana's alerting is provisioned from the Helm values of
+# the victoria-metrics release (upgrade_nodes/k3s/monitoring/values.yaml, key
+# grafana.alerting."rules.yaml".groups). To use these rules, append this group to
+# that list, run the Helm upgrade documented there, and restart Grafana
+# (`rollout restart deploy/victoria-metrics-grafana`): a changed rule file is only
+# read at start.
+#
+# The chart pipes the values through `tpl`, so Grafana's own templating would have
+# to be wrapped as {{`{{ ... }}`}}. These rules use none.
+- orgId: 1
+  name: thread
+  folder: Thread
+  interval: 5m
+  rules:
+    # The reason this exists: RCP over USB Serial/JTAG is unreliable in released
+    # ESP-IDF (esp-idf#18490, #19343) and the firmware here carries patches for it.
+    # OTBR recovers from a single radio failure on its own, so one line is worth
+    # knowing about, not an emergency.
+    #
+    # A single `stats count()` returns a row with 0 when nothing matches, so the
+    # threshold always has a number to read.
+    - uid: thread-rcp-failure
+      title: A Thread radio (RCP) failed or was reset
+      condition: C
+      for: 0s
+      noDataState: OK
+      execErrState: Error
+      labels:
+        severity: warning
+      annotations:
+        summary: OTBR logged an RCP failure or reset in the last 15 minutes
+        description: >-
+          One of the border routers lost its radio link. Open the dashboard "Thread border routers" to see which node and how often. Once in days is the known upstream USB problem and OTBR recovers by itself; repeated hits on one node point at that board, its cable or its USB port. See followup/README.md in the matter-thread-esp32c6 repository.
+      data:
+        - refId: A
+          datasourceUid: VictoriaLogs
+          relativeTimeRange: {from: 900, to: 0}
+          model:
+            refId: A
+            datasource:
+              type: victoriametrics-logs-datasource
+              uid: VictoriaLogs
+            queryType: stats
+            expr: '_time:15m kubernetes.pod_namespace:thread kubernetes.container_name:otbr ("RCP failure detected" OR "Unexpected RCP reset" OR "radio tx timeout" OR "Init() at spinel_driver" OR "WARNING: otbr-agent exited") | stats count() events'
+            maxDataPoints: 1
+        - refId: C
+          datasourceUid: __expr__
+          model:
+            refId: C
+            type: threshold
+            expression: A
+            conditions:
+              - evaluator: {type: gt, params: [0]}
+                operator: {type: and}
+                query: {params: [A]}
+                reducer: {type: last, params: []}
+
+    # Counts what should be present, so a pod that is gone altogether still shows.
+    # THE 4 IS HARDCODED: three border routers and the Matter server. Raise it when
+    # a pod is added to namespace thread, or the rule is blind to the new one.
+    - uid: thread-pods-not-ready
+      title: A Thread border router or the Matter server is not ready
+      condition: C
+      for: 15m
+      noDataState: Alerting
+      execErrState: Error
+      labels:
+        severity: critical
+      annotations:
+        summary: Fewer than 4 pods are ready in namespace thread
+        description: >-
+          Expected ready: otbr-raspi5, otbr-raspi-k3s, otbr-raspi-k3s2 and matter-server. A border router that cannot open its radio crash-loops; check that the board is plugged in and that /dev/serial/by-id on the node holds a symlink, not a directory.
+      data:
+        - refId: A
+          datasourceUid: VictoriaMetrics
+          relativeTimeRange: {from: 600, to: 0}
+          model:
+            refId: A
+            editorMode: code
+            instant: true
+            range: false
+            expr: sum(kube_pod_status_ready{namespace="thread",condition="true"})
+        - refId: C
+          datasourceUid: __expr__
+          model:
+            refId: C
+            type: threshold
+            expression: A
+            conditions:
+              - evaluator: {type: lt, params: [4]}
+                operator: {type: and}
+                query: {params: [A]}
+                reducer: {type: last, params: []}
+
+    - uid: thread-container-restarted
+      title: A container in namespace thread restarted
+      condition: C
+      for: 0s
+      noDataState: OK
+      execErrState: Error
+      labels:
+        severity: warning
+      annotations:
+        summary: A border router or the Matter server restarted in the last hour
+        description: >-
+          OTBR exits when it loses its radio for good and Kubernetes restarts it, so a restart is the next step up from an RCP failure line. The dashboard "Thread border routers" shows which pod.
+      data:
+        - refId: A
+          datasourceUid: VictoriaMetrics
+          relativeTimeRange: {from: 3600, to: 0}
+          model:
+            refId: A
+            editorMode: code
+            instant: true
+            range: false
+            expr: sum(increase(kube_pod_container_status_restarts_total{namespace="thread"}[1h]))
+        - refId: C
+          datasourceUid: __expr__
+          model:
+            refId: C
+            type: threshold
+            expression: A
+            conditions:
+              - evaluator: {type: gt, params: [0]}
+                operator: {type: and}
+                query: {params: [A]}
+                reducer: {type: last, params: []}
