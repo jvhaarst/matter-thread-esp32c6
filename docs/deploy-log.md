@@ -219,3 +219,14 @@ look at the UI.
 
 Side effect: Home Assistant now sees the node's Bluetooth adapter `hci0`, which
 `theengs-gateway` uses.
+
+Confirmed by the user in the UI the same evening: the Thread panel lists three border
+routers under the preferred network `ha-thread-fad4`, with unique mDNS host names:
+
+| Shown as | Host name | Node |
+|---|---|---|
+| `#09B2`, with the key icon | `raspi5-otbr.local.` | `raspi5` |
+| `#4291` | `raspi-k3s-otbr.local.` | `raspi-k3s` |
+| `#D59D` | `raspi-k3s2-otbr.local.` | `raspi-k3s2` |
+
+The four hex digits are the end of each router's extended address.
