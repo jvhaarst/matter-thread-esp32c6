@@ -43,7 +43,7 @@ Three Seeed Studio XIAO ESP32-C6, onboard antenna. None plugged into a node yet.
 
 | # | Base MAC | Node |
 |---|---|---|
-| 1 | `90:64:9b:ab:3f:98` | not assigned |
+| 1 | `90:64:9b:ab:3f:98` | `raspi5`, flashed 2026-11-16 |
 | 2 | | |
 | 3 | | |
 

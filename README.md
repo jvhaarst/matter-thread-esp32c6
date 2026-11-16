@@ -23,3 +23,9 @@ Flash from the workstation, with the board on USB:
 ```sh
 uvx esptool --chip esp32c6 --port /dev/cu.usbmodemXXXX write-flash 0x0 firmware/out/ot_rcp-xiao-esp32c6.bin
 ```
+
+Check that a flashed board answers, before plugging it into a node:
+
+```sh
+uv run --with pyserial firmware/tools/rcp_probe.py /dev/cu.usbmodemXXXX
+```
