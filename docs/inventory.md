@@ -61,7 +61,7 @@ but not built.
 | ESP-IDF | v6.0.3 (2026-09-02) | `b678a4f63b` (2026-07-04) | 11 |
 | HA OTBR app 3.4.0, stable | ot-br-posix `cb4bdae242` (2026-09-30) | `cb18e0f598` (2026-09-25) | 11 |
 | HA OTBR app 3.4.0, beta | ot-br-posix `76fb21d666` (2026-10-31) | `ecd308b4a0` (2026-10-26) | 12 |
-| `ownbee/hass-otbr-docker` v0.4.0 (2026-10-13) | built on add-on image 3.3.0 | not confirmed | not confirmed |
+| `ownbee/hass-otbr-docker` v0.4.0 (2026-10-13) | built on add-on image 3.3.0, otbr-agent `0.3.0-fd872ab9` | `2a8b4a5` (read from `ot-ctl version`) | works with RCP API 11 |
 | `matter-js/matterjs-server` | v1.6.0 (2026-11-14) | | |
 
 OpenThread now defines `SPINEL_MIN_HOST_SUPPORTED_RCP_API_VERSION` (4), so host and radio
