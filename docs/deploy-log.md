@@ -70,3 +70,13 @@ symlink when the radio came back, and OTBR was handed a directory as its serial 
 (`Init() at spinel_driver.cpp:75: Failure`). The Deployment now mounts the directory
 `/dev/serial/by-id` read-only and passes the full path in `DEVICE`. The stray directory
 was removed by hand with `rmdir` and the symlink restored with `udevadm trigger`.
+
+## 2026-11-16, evening: fixes confirmed on `raspi5`
+
+Board 1 reflashed with the fixed build (`sha256 6c9447c2…`, firmware timestamp
+`2026-11-16 19:35:02 UTC`) and plugged back in. Probed 60 s after the cold plug-in, before
+anything else had opened the port: it answered four times out of four. One trial.
+
+Deployment re-applied with the `/dev/serial/by-id` directory mount. OTBR started on the
+first attempt, REST up within 5 s, state `disabled`. The settings file
+`/var/lib/otbr/thread/0_90649bfffeab3f98.data` from the earlier run was still there.
