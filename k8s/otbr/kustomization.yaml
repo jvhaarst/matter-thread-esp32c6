@@ -4,5 +4,4 @@ resources:
   - namespace.yaml
   - overlays/raspi5
   - overlays/raspi-k3s
-  # Added once its radio is flashed and plugged in:
-  # - overlays/raspi-k3s2
+  - overlays/raspi-k3s2
