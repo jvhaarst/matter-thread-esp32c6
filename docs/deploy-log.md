@@ -44,3 +44,29 @@ longer takes effect in ESP-IDF v6.1.
 The radio went into the USB port that held the DS1490F 1-Wire adapter
 (`04fa:2490`), which is no longer attached to `raspi5`. The node still carries the label
 `w1-sensor=true`.
+
+## 2026-11-16, later: both problems of the first start explained
+
+**Radio dead after a cold power-on: my own patch.** Reproduced by replugging: the radio
+answered nothing, and the saved program counter `0x408050d8` resolved to the idle loop
+(`esp_cpu_wait_for_intr`), so nothing had crashed; it simply never transmitted. The USB
+driver only sends from its "FIFO empty" interrupt. On a cold boot the ROM and bootloader
+output fills the FIFO before the host has enumerated the port, and the bus reset then
+empties it without raising that interrupt. Stock ESP-IDF calls
+`usb_serial_jtag_ll_txfifo_flush()` after every write, which sends a packet and so brings
+the interrupt back. The first version of patch 0002 had removed that call. It is restored.
+A reset through RTS did not show the problem, because the port stays enumerated across it.
+
+The bootloader is now built with `CONFIG_BOOTLOADER_LOG_LEVEL_NONE`. The example's
+defaults ask for `CONFIG_BOOTLOADER_LOG_LEVEL_ERROR`, yet the bootloader logged at INFO;
+why was not investigated.
+
+Not yet confirmed on hardware: the fixed firmware has to be flashed and cold-started.
+
+**Crash loop after a replug: the hostPath.** The Deployment mounted the radio's own
+`/dev/serial/by-id/...` path. While the radio was unplugged the container restarted, and
+the container runtime created a *directory* at that path. udev could then not create the
+symlink when the radio came back, and OTBR was handed a directory as its serial port
+(`Init() at spinel_driver.cpp:75: Failure`). The Deployment now mounts the directory
+`/dev/serial/by-id` read-only and passes the full path in `DEVICE`. The stray directory
+was removed by hand with `rmdir` and the symlink restored with `udevadm trigger`.
