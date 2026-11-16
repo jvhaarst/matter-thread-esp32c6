@@ -17,4 +17,4 @@ patches:
         value: raspi-k3s2
       - op: replace
         path: /spec/template/spec/containers/0/env/0/value
-        value: /dev/serial/by-id/usb-Espressif_USB_JTAG_serial_debug_unit_90:64:9B:AB:3E:78-if00
+        value: /dev/serial/by-id/usb-Espressif_USB_JTAG_serial_debug_unit_90:64:9B:AB:40:64-if00
