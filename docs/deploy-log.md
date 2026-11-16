@@ -128,3 +128,22 @@ So `accept_ra_rt_info_max_plen` is indeed not needed on the NetworkManager and n
 nodes. `ntp` would not reach Thread devices; nothing there needs to.
 
 The Matter server shows two WebSocket connections from Home Assistant and 0 nodes.
+
+## 2026-11-16: border routers on `raspi-k3s` and `raspi-k3s2`
+
+Boards 2 and 3 flashed with the same build. They ended up in the opposite nodes from the
+plan, so the overlays follow the hardware: board 3 (`3e:78`) is in `raspi-k3s`, board 2
+(`40:64`) in `raspi-k3s2`. Both answered a Spinel probe on the first open after a cold
+plug-in.
+
+On each node: `60-otbr.conf` installed and loaded (IPv6 routes identical before and after),
+label `thread-br=true`, Deployment applied. Both started on the first attempt.
+
+| Node | Deployment | mDNS hostname | State |
+|---|---|---|---|
+| `raspi5` | `otbr-raspi5` | `raspi5-otbr` | leader |
+| `raspi-k3s` | `otbr-raspi-k3s` | `raspi-k3s-otbr` | disabled, no dataset yet |
+| `raspi-k3s2` | `otbr-raspi-k3s2` | `raspi-k3s2-otbr` | disabled, no dataset yet |
+
+The Kingston USB stick that was in `raspi-k3s` is no longer attached; it was not mounted
+and nothing failed.
