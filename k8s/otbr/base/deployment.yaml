@@ -1,0 +1,103 @@
+# One OpenThread border router. Never applied as is: each overlay pins it to one
+# node and to the radio plugged into that node.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: otbr
+  labels:
+    app.kubernetes.io/name: otbr
+spec:
+  replicas: 1
+  # The radio and the Thread state exist once per node, so the old pod must be
+  # gone before the new one starts.
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: otbr
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: otbr
+    spec:
+      # Thread border routing, mDNS and TREL all work on the LAN itself.
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
+      nodeSelector:
+        thread-br: "true"
+        kubernetes.io/hostname: REPLACED-BY-OVERLAY
+      terminationGracePeriodSeconds: 30
+      containers:
+        - name: otbr
+          # v0.4.0, built on the Home Assistant OTBR add-on image 3.3.0.
+          image: ghcr.io/ownbee/hass-otbr-docker:v0.4.0@sha256:790f21835c86e0d9b9071f21b042ca77ef0ff70e714e8454903982a00df83cfb
+          securityContext:
+            # Required, not a convenience: a container may only open a host
+            # character device (the radio) when the device cgroup allows it, and
+            # without a device plugin only a privileged container gets that.
+            # It also covers /dev/net/tun and the ip6tables/ipset setup.
+            privileged: true
+          env:
+            - name: DEVICE
+              value: /dev/ttyOTBR
+            # Meaningless on USB CDC, but otbr-agent wants a number.
+            - name: BAUDRATE
+              value: "460800"
+            - name: FLOW_CONTROL
+              value: "0"
+            - name: BACKBONE_IF
+              value: eth0
+            - name: OTBR_REST_PORT
+              value: "8081"
+            - name: OTBR_WEB
+              value: "0"
+            - name: FIREWALL
+              value: "1"
+            # The LAN has global IPv6, and NAT64 would add NAT rules next to k3s's own.
+            - name: NAT64
+              value: "0"
+            # Only for Silicon Labs radios.
+            - name: AUTOFLASH_FIRMWARE
+              value: "0"
+            - name: OTBR_LOG_LEVEL
+              value: notice
+          ports:
+            - name: rest
+              containerPort: 8081
+              hostPort: 8081
+              protocol: TCP
+          startupProbe:
+            tcpSocket:
+              port: rest
+            periodSeconds: 5
+            failureThreshold: 60
+          readinessProbe:
+            tcpSocket:
+              port: rest
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket:
+              port: rest
+            periodSeconds: 30
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              memory: 256Mi
+          volumeMounts:
+            - name: radio
+              mountPath: /dev/ttyOTBR
+            - name: state
+              mountPath: /data
+      volumes:
+        - name: radio
+          hostPath:
+            path: REPLACED-BY-OVERLAY
+            type: CharDevice
+        # Thread credentials stay on the node that holds the radio.
+        - name: state
+          hostPath:
+            path: /var/lib/otbr
+            type: DirectoryOrCreate

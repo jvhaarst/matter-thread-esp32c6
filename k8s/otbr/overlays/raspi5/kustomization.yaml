@@ -1,0 +1,20 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ../../base
+nameSuffix: -raspi5
+labels:
+  - pairs:
+      thread-br/node: raspi5
+    includeSelectors: true
+patches:
+  - target:
+      kind: Deployment
+      name: otbr
+    patch: |-
+      - op: replace
+        path: /spec/template/spec/nodeSelector/kubernetes.io~1hostname
+        value: raspi5
+      - op: replace
+        path: /spec/template/spec/volumes/0/hostPath/path
+        value: /dev/serial/by-id/usb-Espressif_USB_JTAG_serial_debug_unit_90:64:9B:AB:3F:98-if00
