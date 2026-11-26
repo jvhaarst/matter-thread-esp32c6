@@ -81,6 +81,19 @@ How to read it:
 - **Hits on one node only:** suspect that board, its extension cable or its USB port. Swap
   two boards and see whether the hits follow the board.
 
+## Which router each device uses
+
+The Matter server's own dashboard has it: `http://<node running matter-server>:5580` (on
+2026-11-26 that is `raspi5`, `192.168.0.240`), then Network, then Thread. It draws devices,
+border routers and links, coloured by signal strength; clicking a device lists its links with
+RSSI and LQI (0 to 3, 3 is best). The data are the devices' own Thread diagnostics, so a sleepy
+device's links can be minutes old, and an offline device keeps its last known links. The same
+graph comes from the WebSocket command `get_network_topology`; use `refresh: false`, which reads
+the cache and causes no radio traffic.
+
+The BILRESA remotes report an implausible average RSSI for their parent (-11 dBm); their last
+RSSI, and the parent's view of them, are realistic.
+
 ## Radio coverage
 
 The floors are 20 cm reinforced concrete. Between floors the border routers reach each other
