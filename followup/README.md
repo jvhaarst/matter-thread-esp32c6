@@ -191,7 +191,7 @@ Checked 2026-11-26.
 | ESP-IDF driver fix for false USB disconnects (esp-idf#18490) | merged to master on 2026-11-10 as `3c68628dcb`, the same fix as patch 0001 plus a chip-revision guard; **not in any release**, not on `release/v6.1`; latest release still v6.1.1 | when a release contains `3c68628dcb`: drop patch 0001, bump ESP-IDF, rebuild, reflash, cold-start test |
 | The OpenThread port defects (byte-wise TX that drops data, fatal `EIO` on read; esp-idf#19343, raised again in #18490 on 2026-11-24) | still in master; Espressif has not said whether it will change the port | keep patch 0002 until that lands |
 | `ownbee/hass-otbr-docker` | **v0.5.0** released 2026-11-23, on app 3.4.0 (OTBR stable v2026.10.0); arm64 and amd64; no environment variables changed; digest `sha256:2f927f06f803c5dd16f97f8aad752c53d92e2c3b1de90fe4273f278fc6cc8206` | upgrade one node first, see below |
-| `matter-js/matterjs-server` | **1.6.1** released 2026-11-25: matter.js 0.18.1, re-subscribes when a device stops mid-update, events before the first read are no longer lost, graph layout fix; the rest is BLE proxy; digest `sha256:5591f9f65926ca4b13b34cfd9c9888cb9d9ee9f147fe0b04c8e025cbeeee0eb7` | bump the digest in `k8s/matter-server/deployment.yaml`; one restart, about 30 s without Matter |
+| `matter-js/matterjs-server` | **1.6.1** released 2026-11-25, running since 2026-11-26: matter.js 0.18.1, re-subscribes when a device stops mid-update, events before the first read are no longer lost, graph layout fix; the rest is BLE proxy; digest `sha256:5591f9f65926ca4b13b34cfd9c9888cb9d9ee9f147fe0b04c8e025cbeeee0eb7` | bump the digest in `k8s/matter-server/deployment.yaml`; one restart, about 30 s without Matter |
 | NetworkManager | `raspi5`, `raspi-k3s` still Debian 12, NM 1.42.4; `raspi-k3s2` Debian 13, NM 1.52.1 | Debian 13 upgrade of those two, independent of this project |
 
 What OTBR v2026.10.0 changes for this setup: routes to external networks announced by *other*
@@ -200,9 +200,12 @@ the leader, and otbr-agent's log lines lose their uptime prefix. RCP API stays a
 the radios, so no reflash is needed. The RCP alert matches message text, not the prefix, so it
 keeps working.
 
-Upgrade order for the border routers: `raspi-k3s2` first (no Matter server, no children at
-the moment), check `ot-ctl state` and the dashboard for a day, then the other two. Each restart
-of a border router drops its children to another parent for a minute.
+Applied 2026-11-26: Matter server 1.6.1 everywhere, and OTBR container v0.5.0 on
+`raspi-k3s2` only, as a canary (override in `k8s/otbr/overlays/raspi-k3s2`). No device went
+offline. Next: after a day without RCP trouble lines or restarts on `raspi-k3s2`, put v0.5.0
+in `k8s/otbr/base`, drop the override, apply; that restarts `raspi5` and `raspi-k3s`, which
+moves their direct children to another parent for a minute. The backup
+`/var/lib/otbr.bak-20261126` on `raspi-k3s2` can go once all three run v0.5.0.
 
 No Renovate configuration exists for this repository; the image digests and the ESP-IDF
 version are bumped by hand.

@@ -18,3 +18,8 @@ patches:
       - op: replace
         path: /spec/template/spec/containers/0/env/0/value
         value: /dev/serial/by-id/usb-Espressif_USB_JTAG_serial_debug_unit_90:64:9B:AB:40:64-if00
+      # Canary for v0.5.0 (app 3.4.0, OTBR stable v2026.10.0), from 2026-11-26. Once it has
+      # run a day without trouble, move this image to ../../base and delete these lines.
+      - op: replace
+        path: /spec/template/spec/containers/0/image
+        value: ghcr.io/ownbee/hass-otbr-docker:v0.5.0@sha256:2f927f06f803c5dd16f97f8aad752c53d92e2c3b1de90fe4273f278fc6cc8206

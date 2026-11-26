@@ -298,3 +298,24 @@ Checked: from the LAN the page answers 200 with a valid certificate and `wss://.
 connects; from `vpn.vanhaarst.net` the page answers 403 and port 5580 is closed. The Matter
 server restarted for the env change: all five powered devices available again, Home Assistant
 reconnected.
+
+## 2026-11-26: Matter server 1.6.1, and OTBR container v0.5.0 on raspi-k3s2 as canary
+
+- Backup first: `/var/lib/otbr` on `raspi-k3s2` copied to `/var/lib/otbr.bak-20261126`,
+  verified identical.
+- Matter server 1.6.0 to 1.6.1 (matter.js 0.18.1). All five powered devices available again
+  10 s after the rollout.
+- `otbr-raspi-k3s2` alone on `ghcr.io/ownbee/hass-otbr-docker:v0.5.0` (HA app 3.4.0), applied
+  19:50:56 UTC. Router again within 5 s, same partition `370331428`, same RLOC16 `0x4800`,
+  same extended address. otbr-agent is now `OPENTHREAD/cb18e0f` (stable v2026.10.0), against
+  the unchanged RCP firmware. mDNS name, TX power 6 dBm and TREL set as before.
+- **No Matter device went offline** during the border-router restart; the prediction that the
+  bulb and its two remotes would drop for a few minutes was wrong. At the time `raspi5` also
+  had a radio link to the bulb (`8a2a`), so the bulb was not cut off.
+
+New log lines from v0.5.0, all harmless: `No primary trel interface found! Using eth0` (TREL_IF
+is not set, eth0 is right) and `Daemon read: Connection reset by peer` (an `ot-ctl` session
+closing). otbr-agent's lines no longer carry the uptime prefix.
+
+Still to do: if `raspi-k3s2` runs a day without RCP trouble lines or restarts, move the v0.5.0
+image into `k8s/otbr/base` and remove the override, which upgrades `raspi5` and `raspi-k3s`.
