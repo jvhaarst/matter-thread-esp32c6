@@ -274,7 +274,8 @@ Read from the Matter server (`get_nodes`) and from `ot-ctl` on the border router
 Nodes 1 to 5 were commissioned on 21 Nov, the plugs on 25 Nov at 17:00 and 17:04. Both plugs
 went offline within four seconds of each other at 17:06; node 7 came back for 14 minutes and
 has been gone since 17:21. Neither has an SRP registration any more, and neither shows in any
-border router's router, neighbour or child table. Cause not known from this side.
+border router's router, neighbour or child table. Cause, confirmed by the user: both plugs
+were unplugged. Not a fault.
 
 On 22 Nov from 18:13 to 18:44 nodes 2 and 3 were offline together. Node 3 uses the bulb as
 its parent, so that is what a bulb losing power looks like.
