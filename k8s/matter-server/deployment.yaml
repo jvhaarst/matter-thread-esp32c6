@@ -44,6 +44,11 @@ spec:
           env:
             - name: PRIMARY_INTERFACE
               value: eth0
+            # Behind Traefik the dashboard cannot tell from the URL that it is served by
+            # the server itself, and asks for a server address. This makes it connect to
+            # the WebSocket at the URL it was loaded from.
+            - name: PRODUCTION_MODE
+              value: "true"
           ports:
             - name: ws
               containerPort: 5580

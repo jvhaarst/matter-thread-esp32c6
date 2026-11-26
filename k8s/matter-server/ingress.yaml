@@ -1,0 +1,38 @@
+# https://matter.vanhaarst.net: the Matter server's dashboard under a name that follows the
+# pod, since the Service always points at whichever node runs it.
+#
+# LAN only, no login, by choice. `lan-only@file` is the allowlist the Traefik allowlist
+# updater maintains (upgrade_nodes/k3s/ingress): the LAN, the cluster's pod and service
+# networks, and the home WAN address, which is where LAN clients appear from when the
+# wildcard DNS name hairpins through the router. Anyone it admits can commission and remove
+# devices through this dashboard.
+#
+# The certificate uses HTTP-01 like the other ingresses; cert-manager's solver gets its own
+# ingress without this middleware, so the allowlist does not block issuance.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: matter-server
+  labels:
+    app.kubernetes.io/name: matter-server
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-production
+    traefik.ingress.kubernetes.io/router.entrypoints: websecure
+    traefik.ingress.kubernetes.io/router.middlewares: lan-only@file
+spec:
+  ingressClassName: traefik
+  rules:
+    - host: matter.vanhaarst.net
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: matter-server
+                port:
+                  name: ws
+  tls:
+    - hosts:
+        - matter.vanhaarst.net
+      secretName: matter-server-tls

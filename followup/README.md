@@ -83,8 +83,10 @@ How to read it:
 
 ## Which router each device uses
 
-The Matter server's own dashboard has it: `http://<node running matter-server>:5580` (on
-2026-11-26 that is `raspi5`, `192.168.0.240`), then Network, then Thread. It draws devices,
+The Matter server's own dashboard has it: https://matter.vanhaarst.net, then Network, then
+Thread. The name follows the pod; it is limited to `lan-only@file` and has no login (so
+anyone it admits can add and remove devices). Without Traefik: `http://<node>:5580` on
+whichever node runs `matter-server`. It draws devices,
 border routers and links, coloured by signal strength; clicking a device lists its links with
 RSSI and LQI (0 to 3, 3 is best). The data are the devices' own Thread diagnostics, so a sleepy
 device's links can be minutes old, and an offline device keeps its last known links. The same

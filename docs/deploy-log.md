@@ -286,3 +286,15 @@ Other results since the 16th:
   restarts. Ten days, against the upstream report of a reset every 1-2 hours unpatched.
 - **`raspi-k3s` rebooted on 20 Nov** (not by me). Its border router came back without help:
   started 14:51, rejoined as child, router again two minutes later, same partition.
+
+## 2026-11-26: https://matter.vanhaarst.net
+
+Ingress `matter-server` in `thread`, middleware `lan-only@file`, certificate from
+`letsencrypt-production` (ready in 30 s), and `PRODUCTION_MODE=true` on the Matter server so
+its dashboard connects to the WebSocket at the URL it was loaded from. No login, by the user's
+choice. `lan-only` also admits `137.224.0.0/16`, which is not the home LAN; accepted.
+
+Checked: from the LAN the page answers 200 with a valid certificate and `wss://.../ws`
+connects; from `vpn.vanhaarst.net` the page answers 403 and port 5580 is closed. The Matter
+server restarted for the env change: all five powered devices available again, Home Assistant
+reconnected.
