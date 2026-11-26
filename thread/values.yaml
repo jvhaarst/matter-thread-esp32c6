@@ -3,7 +3,7 @@
 otbr:
   # ownbee/hass-otbr-docker repackages the Home Assistant OTBR app, so the REST API is the one
   # Home Assistant is tested against. Pinned by tag and digest; Renovate keeps both current.
-  image: ghcr.io/ownbee/hass-otbr-docker:v0.4.0@sha256:790f21835c86e0d9b9071f21b042ca77ef0ff70e714e8454903982a00df83cfb
+  image: ghcr.io/ownbee/hass-otbr-docker:v0.5.0@sha256:2f927f06f803c5dd16f97f8aad752c53d92e2c3b1de90fe4273f278fc6cc8206
   backboneInterface: eth0
   # Home Assistant's OTBR integration and the Matter server's Thread diagnostics both expect 8081.
   restPort: 8081
