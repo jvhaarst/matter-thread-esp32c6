@@ -1,0 +1,36 @@
+name: Lint Helm Chart
+
+on:
+  pull_request:
+    paths:
+      - 'thread/**'
+      - 'tests/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Install Helm
+        uses: azure/setup-helm@v5
+
+      # tests/invariants.sh needs mikefarah yq v4 and jq; both ship with the runner image.
+      - name: Check tools
+        run: |
+          yq --version | grep -q 'mikefarah/yq.* v4\.'
+          jq --version
+
+      - name: Lint chart
+        run: helm lint thread
+
+      - name: Render templates
+        run: helm template thread thread --namespace thread
+
+      - name: Invariants
+        run: tests/invariants.sh
