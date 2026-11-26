@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: matter-server
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "thread.labels" . | nindent 4 }}
+  annotations:
+    # The Matter fabric. Deleting the release must never delete it.
+    helm.sh/resource-policy: keep
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: {{ .Values.matterServer.storage.storageClass }}
+  resources:
+    requests:
+      storage: {{ .Values.matterServer.storage.size }}

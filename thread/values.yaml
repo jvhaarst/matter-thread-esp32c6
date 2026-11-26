@@ -1,0 +1,65 @@
+# OpenThread border routers. One Deployment per entry in borderRouters, pinned to that node
+# and to the radio plugged into it.
+otbr:
+  # ownbee/hass-otbr-docker repackages the Home Assistant OTBR app, so the REST API is the one
+  # Home Assistant is tested against. Pinned by tag and digest; Renovate keeps both current.
+  image: ghcr.io/ownbee/hass-otbr-docker:v0.4.0@sha256:790f21835c86e0d9b9071f21b042ca77ef0ff70e714e8454903982a00df83cfb
+  backboneInterface: eth0
+  # Home Assistant's OTBR integration and the Matter server's Thread diagnostics both expect 8081.
+  restPort: 8081
+  logLevel: notice
+  # Thread credentials stay on the node that holds the radio, never on a network volume.
+  stateHostPath: /var/lib/otbr
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      memory: 256Mi
+
+# node: the Kubernetes node name, which also names the Deployment (otbr-<node>).
+# radioMac: the radio's USB serial number, which is its base MAC address in upper case; it
+#   is what /dev/serial/by-id shows on the node.
+# image: optional, overrides otbr.image for this router only. Use it to try a new image on
+#   one router first.
+borderRouters:
+  - node: raspi5
+    radioMac: "90:64:9B:AB:3F:98"
+  - node: raspi-k3s
+    radioMac: "90:64:9B:AB:3E:78"
+  - node: raspi-k3s2
+    radioMac: "90:64:9B:AB:40:64"
+    image: ghcr.io/ownbee/hass-otbr-docker:v0.5.0@sha256:2f927f06f803c5dd16f97f8aad752c53d92e2c3b1de90fe4273f278fc6cc8206
+
+matterServer:
+  image: ghcr.io/matter-js/matterjs-server:1.6.1@sha256:5591f9f65926ca4b13b34cfd9c9888cb9d9ee9f147fe0b04c8e025cbeeee0eb7
+  primaryInterface: eth0
+  # Behind Traefik the dashboard cannot tell from the URL that the server itself serves it,
+  # and asks for a server address. This makes it use the URL it was loaded from.
+  productionMode: true
+  # Same nodes as Home Assistant; both are Raspberry Pis whose uplink is primaryInterface.
+  nodes:
+    - raspi5
+    - raspi-k3s2
+  # The Matter fabric: keys and the list of commissioned devices. Losing it means every
+  # device has to be factory-reset and commissioned again. The claim is kept when the release
+  # is uninstalled.
+  storage:
+    size: 1Gi
+    storageClass: longhorn
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      memory: 1Gi
+  # The dashboard under a name that follows the pod. lan-only@file is the allowlist the
+  # Traefik allowlist updater maintains: the LAN, the pod and service networks, the home WAN
+  # address (where LAN clients appear from through the public name), and 137.224.0.0/16.
+  # There is no login: anyone it admits can add and remove devices.
+  ingress:
+    enabled: true
+    host: matter.vanhaarst.net
+    middlewares: lan-only@file
+    clusterIssuer: letsencrypt-production
+    tlsSecret: matter-server-tls

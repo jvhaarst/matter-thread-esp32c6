@@ -1,0 +1,18 @@
+# A stable name for Home Assistant: ws://matter-server.<namespace>.svc.cluster.local:5580/ws.
+# The pod uses host networking, so the endpoint is the address of whichever node runs it.
+apiVersion: v1
+kind: Service
+metadata:
+  name: matter-server
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "thread.labels" . | nindent 4 }}
+    app.kubernetes.io/name: matter-server
+spec:
+  selector:
+    app.kubernetes.io/name: matter-server
+  ports:
+    - name: ws
+      port: 5580
+      targetPort: ws
+      protocol: TCP

@@ -1,0 +1,8 @@
+apiVersion: v2
+name: thread
+description: >-
+  OpenThread border routers (one per node, each with its own USB radio) and the
+  matter.js Matter server, for Matter-over-Thread devices in Home Assistant.
+type: application
+# The release workflow replaces the last digit with the run number.
+version: 0.1.0

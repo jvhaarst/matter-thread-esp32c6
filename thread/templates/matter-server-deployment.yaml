@@ -1,0 +1,85 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: matter-server
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "thread.labels" . | nindent 4 }}
+    app.kubernetes.io/name: matter-server
+spec:
+  replicas: 1
+  # One controller per fabric, and the volume is ReadWriteOnce.
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: matter-server
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: matter-server
+    spec:
+      # Matter uses link-local IPv6 multicast and mDNS, which do not cross the pod network.
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: kubernetes.io/hostname
+                    operator: In
+                    values:
+                      {{- toYaml .Values.matterServer.nodes | nindent 22 }}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
+      containers:
+        - name: matter-server
+          image: {{ .Values.matterServer.image }}
+          env:
+            - name: PRIMARY_INTERFACE
+              value: {{ .Values.matterServer.primaryInterface }}
+            - name: PRODUCTION_MODE
+              value: {{ .Values.matterServer.productionMode | quote }}
+          ports:
+            - name: ws
+              containerPort: 5580
+              hostPort: 5580
+              protocol: TCP
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          startupProbe:
+            tcpSocket:
+              port: ws
+            periodSeconds: 5
+            failureThreshold: 60
+          readinessProbe:
+            tcpSocket:
+              port: ws
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket:
+              port: ws
+            periodSeconds: 30
+            failureThreshold: 3
+          resources:
+            {{- toYaml .Values.matterServer.resources | nindent 12 }}
+          volumeMounts:
+            - name: data
+              mountPath: /data
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: matter-server
+        - name: tmp
+          emptyDir: {}

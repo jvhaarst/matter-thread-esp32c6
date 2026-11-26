@@ -1,0 +1,6 @@
+Border routers: {{ range .Values.borderRouters }}otbr-{{ .node }} {{ end }}
+Check one:  kubectl -n {{ .Release.Namespace }} exec deploy/otbr-<node> -- ot-ctl state
+Matter server for Home Assistant: ws://matter-server.{{ .Release.Namespace }}.svc.cluster.local:5580/ws
+{{- if .Values.matterServer.ingress.enabled }}
+Dashboard (LAN only, no login): https://{{ .Values.matterServer.ingress.host }}
+{{- end }}
