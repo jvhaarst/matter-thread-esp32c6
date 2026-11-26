@@ -1,0 +1,9 @@
+# Rancher chart repository for the chart in thread/, published to GitHub Pages by
+# .github/workflows/helm-release.yaml. Install and upgrade the App from Rancher:
+# Apps -> Charts -> thread, namespace thread, release name thread.
+apiVersion: catalog.cattle.io/v1
+kind: ClusterRepo
+metadata:
+  name: thread
+spec:
+  url: https://jvhaarst.github.io/matter-thread-esp32c6
