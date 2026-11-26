@@ -94,6 +94,13 @@ If a room on a floor turns out weak: first a mains-powered Thread device there, 
 routes for the mesh; then an external U.FL antenna on that floor's board, which needs
 `XIAO_USE_EXTERNAL_ANTENNA 1` in patch 0003 and a reflash.
 
+## Status on 2026-11-26
+
+Seven devices commissioned, five available; the two GRILLPLATS plugs are not in the mesh.
+No RCP trouble lines and no restarts in ten days. A node reboot (`raspi-k3s`, 20 Nov)
+was survived without intervention. Details in the deploy log. Items 1, 3 and 5 below are
+therefore done; failover (2) and a replug while running (4) are still open.
+
 ## Not proven yet
 
 Nothing below has been tested. Each is a short job once a Matter-over-Thread device is at

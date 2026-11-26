@@ -255,3 +255,33 @@ heard by at least one other over 15.4), and `raspi5` and `raspi-k3s` receive. Th
 
 This is the reason for one border router per floor: the mesh between floors runs over
 Ethernet, each radio serves its own floor.
+
+## 2026-11-26: first devices, ten days in
+
+Commissioned by the user through Home Assistant: seven IKEA Matter-over-Thread devices.
+Read from the Matter server (`get_nodes`) and from `ot-ctl` on the border routers, 18:40 UTC.
+
+| Node | Device | Thread role | Attached to | Status |
+|---|---|---|---|---|
+| 1 | TIMMERFLOTTE temp/humidity | sleepy end device | `raspi5`, child, RSSI -82 | available |
+| 2 | KAJPLATS E27 bulb | router `0x8000` | radio neighbour of `raspi-k3s2`, RSSI -76 | available |
+| 3 | BILRESA scroll wheel | sleepy end device | the bulb (`0x8000`) | available |
+| 4 | BILRESA dual button | sleepy end device | the bulb (`0x8000`) | available |
+| 5 | TIMMERFLOTTE temp/humidity | sleepy end device | `raspi-k3s`, child, RSSI -64 | available |
+| 6 | GRILLPLATS plug | router at last contact | not in the mesh | **unavailable** |
+| 7 | GRILLPLATS plug | REED at last contact | not in the mesh | **unavailable** |
+
+Nodes 1 to 5 were commissioned on 21 Nov, the plugs on 25 Nov at 17:00 and 17:04. Both plugs
+went offline within four seconds of each other at 17:06; node 7 came back for 14 minutes and
+has been gone since 17:21. Neither has an SRP registration any more, and neither shows in any
+border router's router, neighbour or child table. Cause not known from this side.
+
+On 22 Nov from 18:13 to 18:44 nodes 2 and 3 were offline together. Node 3 uses the bulb as
+its parent, so that is what a bulb losing power looks like.
+
+Other results since the 16th:
+
+- **No RCP trouble lines at all** from 17 Nov to now, on any border router, and 0 container
+  restarts. Ten days, against the upstream report of a reset every 1-2 hours unpatched.
+- **`raspi-k3s` rebooted on 20 Nov** (not by me). Its border router came back without help:
+  started 14:51, rejoined as child, router again two minutes later, same partition.
