@@ -69,6 +69,20 @@ images() { jq -r '[.[] | select(.kind == "Deployment") | "\(.metadata.name)=\(.s
 changed="$(diff <(images "$tmp/default.json") <(images "$tmp/canary.json") | grep '^>' | cut -d' ' -f2 || true)"
 [ "$changed" = "otbr-raspi-k3s2=$canary" ] || fail "a per-router image for raspi-k3s2 changed: ${changed:-nothing}"
 
+# radioMac is written as /dev/serial/by-id shows it, in upper case; a lower-case value must
+# still open the right device, and a missing one must stop the render instead of producing
+# a path that cannot exist.
+yq '(.borderRouters[] | select(.node == "raspi5") | .radioMac) = "90:64:9b:ab:3f:98"' thread/values.yaml > "$tmp/lower-values.yaml"
+render -f "$tmp/lower-values.yaml" > "$tmp/lower.json"
+dev="$(jq -r '.[] | select(.kind == "Deployment" and .metadata.name == "otbr-raspi5")
+              | .spec.template.spec.containers[0].env[] | select(.name == "DEVICE") | .value' "$tmp/lower.json")"
+[ "$dev" = "/dev/serial/by-id/usb-Espressif_USB_JTAG_serial_debug_unit_90:64:9B:AB:3F:98-if00" ] \
+    || fail "a lower-case radioMac renders $dev"
+yq 'del(.borderRouters[] | select(.node == "raspi5") | .radioMac)' thread/values.yaml > "$tmp/nomac-values.yaml"
+if helm template thread thread --namespace thread -f "$tmp/nomac-values.yaml" > /dev/null 2>&1; then
+    fail "a border router without radioMac renders anyway"
+fi
+
 if [ "$failures" -gt 0 ]; then
     echo "$failures invariant(s) failed" >&2
     exit 1

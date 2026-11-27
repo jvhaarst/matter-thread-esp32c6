@@ -44,7 +44,7 @@ spec:
             privileged: true
           env:
             - name: DEVICE
-              value: /dev/serial/by-id/usb-Espressif_USB_JTAG_serial_debug_unit_{{ .radioMac }}-if00
+              value: /dev/serial/by-id/usb-Espressif_USB_JTAG_serial_debug_unit_{{ required (printf "borderRouters: radioMac is required for %s" .node) .radioMac | upper }}-if00
             # Meaningless on USB CDC, but otbr-agent wants a number.
             - name: BAUDRATE
               value: "460800"
