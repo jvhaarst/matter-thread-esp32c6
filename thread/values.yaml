@@ -14,8 +14,15 @@ otbr:
   # forwarding sysctl from nodes/60-otbr.conf on it) to add one.
   nodeSelector:
     thread-br: "true"
-  # The radio as /dev/serial/by-id names it; each border-router node must have exactly one.
+  # The radio as /dev/serial/by-id names it; each border-router node must have exactly one
+  # device that matches and answers as an OpenThread radio.
   radioPattern: usb-Espressif_USB_JTAG_serial_debug_unit_*-if00
+  # Name the radio for a node explicitly, as `ls /dev/serial/by-id` shows it on that node,
+  # e.g. for a node with two radios or a radio the pattern does not match. It must still
+  # answer as an OpenThread radio. Changing this rolls the border routers one node at a time.
+  #   radioOverrides:
+  #     raspi5: usb-Espressif_USB_JTAG_serial_debug_unit_90:64:9B:AB:3F:98-if00
+  radioOverrides: {}
   resources:
     requests:
       cpu: 50m

@@ -10,5 +10,10 @@ metadata:
 data:
   link-radio.sh: |-
     {{- .Files.Get "files/link-radio.sh" | trimSuffix "\n" | nindent 4 }}
+  # "<node> <by-id name>" per line; see otbr.radioOverrides in values.yaml.
+  radio-overrides: |-
+    {{- range $node, $radio := .Values.otbr.radioOverrides }}
+    {{ $node }} {{ $radio }}
+    {{- end }}
   probe-radio.py: |-
     {{- .Files.Get "files/probe-radio.py" | trimSuffix "\n" | nindent 4 }}

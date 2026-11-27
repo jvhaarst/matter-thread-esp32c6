@@ -9,12 +9,31 @@
 # makes sure the board is a Thread radio and that it answers. Anything other than exactly one
 # answering radio stops the container before otbr-agent starts, with each device's answer in
 # the log: none means unplugged, hung or wrongly flashed; two means a second radio on this node.
+#
+# An override ("<node> <by-id name>" lines in RADIO_OVERRIDES, matched against NODE_NAME) names
+# the radio for one node, for a node with two radios or a radio the pattern does not match.
+# The named device must exist and must still answer as an OpenThread radio.
 set -eu
 dir="${RADIO_DIR:-/dev/serial/by-id}"
 pattern="${RADIO_PATTERN:-usb-Espressif_USB_JTAG_serial_debug_unit_*-if00}"
 link="${RADIO_LINK:-/dev/ttyOTBR}"
 
 probe="${RADIO_PROBE:-python3 /opt/thread/probe-radio.py}"
+overrides="${RADIO_OVERRIDES:-}"
+node="${NODE_NAME:-}"
+
+override=""
+if [ -n "$node" ] && [ -n "$overrides" ] && [ -r "$overrides" ]; then
+    override="$(awk -v n="$node" '$1 == n { print $2; exit }' "$overrides")"
+fi
+if [ -n "$override" ]; then
+    echo "link-radio: override for $node: $override"
+    if ! [ -e "$dir/$override" ] && ! [ -L "$dir/$override" ]; then
+        echo "link-radio: override for $node: $override not found in $dir" >&2
+        exit 1
+    fi
+    pattern="$override"
+fi
 
 candidates=0
 answered=0

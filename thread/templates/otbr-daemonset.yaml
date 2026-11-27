@@ -25,6 +25,10 @@ spec:
   minReadySeconds: 60
   template:
     metadata:
+      annotations:
+        # Changes with the radio overrides, so a changed override rolls out node by node; it
+        # does not change with the chart version, so an upgrade alone restarts nothing.
+        thread.otbr/radio-overrides: {{ toJson .Values.otbr.radioOverrides | sha256sum | trunc 16 }}
       labels:
         app.kubernetes.io/name: otbr
     spec:
@@ -50,6 +54,12 @@ spec:
           env:
             - name: RADIO_PATTERN
               value: {{ .Values.otbr.radioPattern | quote }}
+            - name: RADIO_OVERRIDES
+              value: /opt/thread/radio-overrides
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
             - name: DEVICE
               value: /dev/ttyOTBR
             # Meaningless on USB CDC, but otbr-agent wants a number.

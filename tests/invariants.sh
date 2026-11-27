@@ -43,7 +43,22 @@ if [ -n "$d" ]; then
     [ "$(jq -cS '.livenessProbe.tcpSocket' <<<"$c")" = '{"port":"rest"}' ] || fail "otbr liveness is not the REST port check"
     [ "$(jq -r '.env[] | select(.name == "DEVICE") | .value' <<<"$c")" = /dev/ttyOTBR ] || fail "otbr DEVICE is not /dev/ttyOTBR"
     [ "$(jq -c '.command' <<<"$c")" = '["/opt/thread/link-radio.sh"]' ] || fail "otbr command is $(jq -c '.command' <<<"$c")"
+    # The wrapper learns its node from the downward API, to find an override for it.
+    [ "$(jq -r '.env[] | select(.name == "NODE_NAME") | .valueFrom.fieldRef.fieldPath' <<<"$c")" = spec.nodeName ] \
+        || fail "otbr NODE_NAME does not come from spec.nodeName"
+    [ "$(jq -r '.env[] | select(.name == "RADIO_OVERRIDES") | .value' <<<"$c")" = /opt/thread/radio-overrides ] \
+        || fail "otbr RADIO_OVERRIDES is not /opt/thread/radio-overrides"
 fi
+
+# A per-node radio override lands in the ConfigMap as "<node> <by-id name>", and changes the
+# pod template (a checksum annotation), so the DaemonSet rolls it out node by node.
+override="usb-Espressif_USB_JTAG_serial_debug_unit_90:64:9B:AB:3F:98-if00"
+render --set "otbr.radioOverrides.raspi5=$override" > "$tmp/override.json"
+[ "$(jq -r '.[] | select(.kind == "ConfigMap" and .metadata.name == "otbr-scripts") | .data["radio-overrides"]' "$tmp/override.json")" = "raspi5 $override" ] \
+    || fail "radio override not rendered into the ConfigMap"
+pod_annotations() { jq -cS '.[] | select(.kind == "DaemonSet") | .spec.template.metadata.annotations' "$1"; }
+[ "$(pod_annotations "$tmp/override.json")" != "$(pod_annotations "$tmp/default.json")" ] \
+    || fail "a radio override does not change the DaemonSet's pod template, so it would never roll out"
 # The wrapper and the probe the pods run are the tested files, byte for byte.
 for f in link-radio.sh probe-radio.py; do
     diff <(q ".[] | select(.kind == \"ConfigMap\" and .metadata.name == \"otbr-scripts\") | .data[\"$f\"]") \

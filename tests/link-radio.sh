@@ -23,7 +23,8 @@ STUB
 chmod +x "$tmp/probe"
 run() {
     RADIO_DIR="$tmp/case/by-id" RADIO_LINK="$tmp/case/ttyOTBR" RADIO_PROBE="$tmp/probe" \
-        RADIO_TEST_ANSWERS="$tmp/case/answers" sh "$script" true > "$tmp/case/out" 2>&1
+        RADIO_TEST_ANSWERS="$tmp/case/answers" NODE_NAME=node-a RADIO_OVERRIDES="$tmp/case/overrides" \
+        sh "$script" true > "$tmp/case/out" 2>&1
 }
 other=usb-Espressif_USB_JTAG_serial_debug_unit_90:64:9B:AB:40:64-if00
 
@@ -60,6 +61,30 @@ grep -q "found 2 candidates, 2 answered" "$tmp/case/out" || fail "two answering 
 # Devices that do not match the pattern are not even probed.
 case_dir; touch "$tmp/case/by-id/$radio" "$tmp/case/by-id/usb-FTDI_FT232R_USB_UART_A1234-if00-port0"; echo "$radio" > "$tmp/case/answers"
 run || fail "radio plus another serial device: exited non-zero: $(cat "$tmp/case/out")"
+
+# An override names this node's radio: it is used even when another radio also answers.
+case_dir; touch "$tmp/case/by-id/$radio" "$tmp/case/by-id/$other"; printf '%s\n%s\n' "$radio" "$other" > "$tmp/case/answers"
+printf 'node-a %s\n' "$other" > "$tmp/case/overrides"
+run || fail "override: exited non-zero: $(cat "$tmp/case/out")"
+[ "$(readlink "$tmp/case/ttyOTBR" 2>/dev/null)" = "$tmp/case/by-id/$other" ] || fail "override: linked $(readlink "$tmp/case/ttyOTBR" 2>/dev/null)"
+grep -q "override for node-a" "$tmp/case/out" || fail "override: not announced: $(cat "$tmp/case/out")"
+
+# An override for another node is ignored here.
+case_dir; touch "$tmp/case/by-id/$radio"; echo "$radio" > "$tmp/case/answers"
+printf 'node-b %s\n' "$other" > "$tmp/case/overrides"
+run || fail "override for another node: exited non-zero: $(cat "$tmp/case/out")"
+
+# An override naming a device that is not there: refuses, names it.
+case_dir; touch "$tmp/case/by-id/$radio"; echo "$radio" > "$tmp/case/answers"
+printf 'node-a %s\n' "$other" > "$tmp/case/overrides"
+if run; then fail "override to a missing device: exited zero"; fi
+grep -q "override for node-a: $other not found" "$tmp/case/out" || fail "override to a missing device: message was: $(cat "$tmp/case/out")"
+
+# An overridden device must still answer as an OpenThread radio.
+case_dir; touch "$tmp/case/by-id/$radio" "$tmp/case/by-id/$other"; echo "$radio" > "$tmp/case/answers"
+printf 'node-a %s\n' "$other" > "$tmp/case/overrides"
+if run; then fail "override to a silent device: exited zero"; fi
+[ ! -e "$tmp/case/ttyOTBR" ] || fail "override to a silent device: a link was made"
 
 # The command is handed over (exec), with its arguments.
 case_dir; touch "$tmp/case/by-id/$radio"; echo "$radio" > "$tmp/case/answers"
