@@ -230,7 +230,8 @@ three `borderRouters` entries, merge, upgrade the App (one router restarts), and
 remove those two lines and upgrade again.
 
 **Replace a radio.** The new board has another MAC address: change that entry's `radioMac` in
-`thread/values.yaml` to what `ls /dev/serial/by-id/` shows on the node. The Thread credentials
+`thread/values.yaml` to what `ls /dev/serial/by-id/` shows on the node, and the same MAC in the
+`mac` table of `tests/invariants.sh`, which checks each router opens its own radio. The Thread credentials
 are in `/var/lib/otbr` on the node and survive the swap.
 
 **Add a border router.** Install `nodes/60-otbr.conf` as `/etc/sysctl.d/60-otbr.conf` on the
