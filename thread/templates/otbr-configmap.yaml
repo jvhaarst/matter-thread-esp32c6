@@ -1,0 +1,12 @@
+# The border routers' container command; see files/link-radio.sh.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: otbr-scripts
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "thread.labels" . | nindent 4 }}
+    app.kubernetes.io/name: otbr
+data:
+  link-radio.sh: |-
+    {{- .Files.Get "files/link-radio.sh" | trimSuffix "\n" | nindent 4 }}

@@ -1,59 +1,66 @@
-{{- range .Values.borderRouters }}
----
+# One OpenThread border router on every node labelled thread-br=true, each with the one USB
+# radio plugged into that node. Adding a border router is labelling a node; the chart does not
+# change.
 apiVersion: apps/v1
-kind: Deployment
+kind: DaemonSet
 metadata:
-  name: otbr-{{ .node }}
-  namespace: {{ $.Release.Namespace }}
+  name: otbr
+  namespace: {{ .Release.Namespace }}
   labels:
-    {{- include "thread.labels" $ | nindent 4 }}
+    {{- include "thread.labels" . | nindent 4 }}
     app.kubernetes.io/name: otbr
-    thread-br/node: {{ .node }}
 spec:
-  replicas: 1
-  # The radio and the Thread state exist once per node, so the old pod must be gone before
-  # the new one starts.
-  strategy:
-    type: Recreate
   selector:
     matchLabels:
       app.kubernetes.io/name: otbr
-      thread-br/node: {{ .node }}
+  # Upgrades go one node at a time, and the next node only after the replaced router has been
+  # Ready (back in the mesh, see the readiness probe) for minReadySeconds, so the network always
+  # keeps the other border routers. maxSurge must stay 0: the radio and port 8081 exist once per
+  # node, so a second pod on the same node could never start.
+  updateStrategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+      maxSurge: 0
+  minReadySeconds: 60
   template:
     metadata:
       labels:
         app.kubernetes.io/name: otbr
-        thread-br/node: {{ .node }}
     spec:
       # Thread border routing, mDNS and TREL all work on the LAN itself.
       hostNetwork: true
       dnsPolicy: ClusterFirstWithHostNet
       nodeSelector:
-        kubernetes.io/hostname: {{ .node }}
-        thread-br: "true"
+        {{- toYaml .Values.otbr.nodeSelector | nindent 8 }}
       terminationGracePeriodSeconds: 30
       containers:
         - name: otbr
-          image: {{ .image | default $.Values.otbr.image }}
+          image: {{ .Values.otbr.image }}
+          # Finds this node's radio, links it to DEVICE, then runs the image's /init.
+          command:
+            - /opt/thread/link-radio.sh
           securityContext:
             # Required, not a convenience: a container may only open a host character
             # device (the radio) when the device cgroup allows it, and without a device
             # plugin only a privileged container gets that. It also covers /dev/net/tun and
             # the ip6tables/ipset setup. A privileged container gets the host's device nodes
-            # at creation, which is where the by-id symlink points (../../ttyACM0).
+            # at creation, which is where the by-id symlinks point (../../ttyACM0).
             privileged: true
           env:
+            - name: RADIO_PATTERN
+              value: {{ .Values.otbr.radioPattern | quote }}
             - name: DEVICE
-              value: /dev/serial/by-id/usb-Espressif_USB_JTAG_serial_debug_unit_{{ required (printf "borderRouters: radioMac is required for %s" .node) .radioMac | upper }}-if00
+              value: /dev/ttyOTBR
             # Meaningless on USB CDC, but otbr-agent wants a number.
             - name: BAUDRATE
               value: "460800"
             - name: FLOW_CONTROL
               value: "0"
             - name: BACKBONE_IF
-              value: {{ $.Values.otbr.backboneInterface }}
+              value: {{ .Values.otbr.backboneInterface }}
             - name: OTBR_REST_PORT
-              value: {{ $.Values.otbr.restPort | quote }}
+              value: {{ .Values.otbr.restPort | quote }}
             - name: OTBR_WEB
               value: "0"
             - name: FIREWALL
@@ -65,34 +72,44 @@ spec:
             - name: AUTOFLASH_FIRMWARE
               value: "0"
             - name: OTBR_LOG_LEVEL
-              value: {{ $.Values.otbr.logLevel }}
+              value: {{ .Values.otbr.logLevel }}
           ports:
             - name: rest
-              containerPort: {{ $.Values.otbr.restPort }}
-              hostPort: {{ $.Values.otbr.restPort }}
+              containerPort: {{ .Values.otbr.restPort }}
+              hostPort: {{ .Values.otbr.restPort }}
               protocol: TCP
           startupProbe:
             tcpSocket:
               port: rest
             periodSeconds: 5
             failureThreshold: 60
+          # Ready means "in the Thread mesh", not just "REST port open"; the rolling update waits
+          # for it. A router that is briefly detached only drops out of Ready, it is not restarted.
           readinessProbe:
-            tcpSocket:
-              port: rest
+            exec:
+              command:
+                - sh
+                - -c
+                - ot-ctl state | grep -q -E '^(child|router|leader)'
             periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
           livenessProbe:
             tcpSocket:
               port: rest
             periodSeconds: 30
             failureThreshold: 3
           resources:
-            {{- toYaml $.Values.otbr.resources | nindent 12 }}
+            {{- toYaml .Values.otbr.resources | nindent 12 }}
           volumeMounts:
             - name: radio
               mountPath: /dev/serial/by-id
               readOnly: true
             - name: state
               mountPath: /data
+            - name: scripts
+              mountPath: /opt/thread
+              readOnly: true
       volumes:
         # The directory of symlinks, never the radio's own path. With the device itself as
         # hostPath, the container runtime creates a directory in its place when a restart
@@ -104,6 +121,9 @@ spec:
             type: Directory
         - name: state
           hostPath:
-            path: {{ $.Values.otbr.stateHostPath }}
+            path: {{ .Values.otbr.stateHostPath }}
             type: DirectoryOrCreate
-{{- end }}
+        - name: scripts
+          configMap:
+            name: otbr-scripts
+            defaultMode: 0555

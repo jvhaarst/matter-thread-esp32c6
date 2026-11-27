@@ -33,3 +33,6 @@ jobs:
 
       - name: Invariants
         run: tests/invariants.sh
+
+      - name: Radio wrapper
+        run: tests/link-radio.sh
