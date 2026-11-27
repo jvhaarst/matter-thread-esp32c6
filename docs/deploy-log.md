@@ -330,3 +330,16 @@ throughout. The two TIMMERFLOTTE sensors that had a border router as parent re-a
 elsewhere; no border router has a child at the moment.
 
 The backup `/var/lib/otbr.bak-20261126` on `raspi-k3s2` is still there; it can be removed.
+
+## 2026-11-27: the Thread workloads are a Rancher App
+
+Chart `thread` 0.1.2 from `https://jvhaarst.github.io/matter-thread-esp32c6`, installed by the
+user from Rancher as release `thread` in namespace `thread`, revision 1, 20:43 UTC. Before
+that, the seven running objects were given Helm's ownership label and annotations, so the
+install adopted them: the four Deployments, and the Matter server's Service, PVC and Ingress.
+
+Checked afterwards: every pod has the start time and restart count it had before; the live
+objects equal the release manifest; the PVC is the same volume
+(`pvc-9a389fca-95e9-4f19-bf46-dfdbcac3c023`) and now carries `helm.sh/resource-policy: keep`;
+the three border routers are leader and routers on partition `370331428`; Matter nodes 1 to 5
+are available; `https://matter.vanhaarst.net` answers 200 from the LAN and 403 from outside.
