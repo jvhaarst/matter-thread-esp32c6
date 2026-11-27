@@ -1,5 +1,5 @@
-# OpenThread border routers. One Deployment per entry in borderRouters, pinned to that node
-# and to the radio plugged into it.
+# OpenThread border routers: one pod on every node that matches nodeSelector, using the one
+# radio plugged into that node.
 otbr:
   # ownbee/hass-otbr-docker repackages the Home Assistant OTBR app, so the REST API is the one
   # Home Assistant is tested against. Pinned by tag and digest; Renovate keeps both current.
@@ -10,25 +10,25 @@ otbr:
   logLevel: notice
   # Thread credentials stay on the node that holds the radio, never on a network volume.
   stateHostPath: /var/lib/otbr
+  # Which nodes are border routers. Label a node thread-br=true (after installing the IPv6
+  # forwarding sysctl from nodes/60-otbr.conf on it) to add one.
+  nodeSelector:
+    thread-br: "true"
+  # The radio as /dev/serial/by-id names it; each border-router node must have exactly one
+  # device that matches and answers as an OpenThread radio.
+  radioPattern: usb-Espressif_USB_JTAG_serial_debug_unit_*-if00
+  # Name the radio for a node explicitly, as `ls /dev/serial/by-id` shows it on that node,
+  # e.g. for a node with two radios or a radio the pattern does not match. It must still
+  # answer as an OpenThread radio. Changing this rolls the border routers one node at a time.
+  #   radioOverrides:
+  #     raspi5: usb-Espressif_USB_JTAG_serial_debug_unit_90:64:9B:AB:3F:98-if00
+  radioOverrides: {}
   resources:
     requests:
       cpu: 50m
       memory: 64Mi
     limits:
       memory: 256Mi
-
-# node: the Kubernetes node name, which also names the Deployment (otbr-<node>).
-# radioMac: the radio's USB serial number, which is its base MAC address in upper case; it
-#   is what /dev/serial/by-id shows on the node.
-# image: optional, overrides otbr.image for this router only. Use it to try a new image on
-#   one router first.
-borderRouters:
-  - node: raspi5
-    radioMac: "90:64:9B:AB:3F:98"
-  - node: raspi-k3s
-    radioMac: "90:64:9B:AB:3E:78"
-  - node: raspi-k3s2
-    radioMac: "90:64:9B:AB:40:64"
 
 matterServer:
   image: ghcr.io/matter-js/matterjs-server:1.6.1@sha256:5591f9f65926ca4b13b34cfd9c9888cb9d9ee9f147fe0b04c8e025cbeeee0eb7
@@ -57,7 +57,7 @@ matterServer:
       memory: 1Gi
   # The dashboard under a name that follows the pod. lan-only@file is the allowlist the
   # Traefik allowlist updater maintains: the LAN, the pod and service networks, the home WAN
-  # address (where LAN clients appear from through the public name), and 137.224.0.0/16.
+  # address (where LAN clients appear from through the public name), and one external range.
   # There is no login: anyone it admits can add and remove devices.
   ingress:
     enabled: true

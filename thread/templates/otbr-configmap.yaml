@@ -1,0 +1,19 @@
+# The border routers' container command and the radio probe it runs; see files/.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: otbr-scripts
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "thread.labels" . | nindent 4 }}
+    app.kubernetes.io/name: otbr
+data:
+  link-radio.sh: |-
+    {{- .Files.Get "files/link-radio.sh" | trimSuffix "\n" | nindent 4 }}
+  # "<node> <by-id name>" per line; see otbr.radioOverrides in values.yaml.
+  radio-overrides: |-
+    {{- range $node, $radio := .Values.otbr.radioOverrides }}
+    {{ $node }} {{ $radio }}
+    {{- end }}
+  probe-radio.py: |-
+    {{- .Files.Get "files/probe-radio.py" | trimSuffix "\n" | nindent 4 }}

@@ -12,7 +12,7 @@
 
 ## Global Constraints
 
-- Pattern to copy: `~/code/time_dashboard_k8s` (chart directory at repo root, `.github/workflows/lint.yaml`, `.github/workflows/helm-release.yaml`, `renovate.json`). Publish URL `https://jvhaarst.github.io/matter-thread-esp32c6`.
+- Pattern to copy: the user's other chart repositories (chart directory at repo root, `.github/workflows/lint.yaml`, `.github/workflows/helm-release.yaml`, `renovate.json`). Publish URL `https://<owner>.github.io/matter-thread-esp32c6`.
 - Chart name `thread`, directory `thread/`, Helm release name `thread`, namespace `thread`. The chart does not create the namespace.
 - Object names stay: `otbr-raspi5`, `otbr-raspi-k3s`, `otbr-raspi-k3s2`, `matter-server` (Deployment, Service, PVC, Ingress), TLS secret `matter-server-tls`.
 - Selectors stay: OTBR `{app.kubernetes.io/name: otbr, thread-br/node: <node>}`; Matter server `{app.kubernetes.io/name: matter-server}`. Pod template labels are exactly the selector labels; Helm's own labels go on object metadata only.
@@ -61,7 +61,7 @@ Not chart work, but the chart starts with all three routers on v0.5.0.
   - `otbr.image` (string, full reference with digest), `otbr.backboneInterface` (`eth0`), `otbr.restPort` (`8081`), `otbr.logLevel` (`notice`), `otbr.stateHostPath` (`/var/lib/otbr`), `otbr.resources`
   - `borderRouters` (list of `{node, radioMac, image?}`; `image` optional, overrides `otbr.image` for that router)
   - `matterServer.image`, `matterServer.primaryInterface` (`eth0`), `matterServer.productionMode` (`true`), `matterServer.nodes` (`[raspi5, raspi-k3s2]`), `matterServer.storage.size` (`1Gi`), `matterServer.storage.storageClass` (`longhorn`), `matterServer.resources`
-  - `matterServer.ingress.enabled` (`true`), `.host` (`matter.vanhaarst.net`), `.middlewares` (`lan-only@file`), `.clusterIssuer` (`letsencrypt-production`), `.tlsSecret` (`matter-server-tls`)
+  - `matterServer.ingress.enabled` (`true`), `.host` (the dashboard host name), `.middlewares` (`lan-only@file`), `.clusterIssuer` (`letsencrypt-production`), `.tlsSecret` (`matter-server-tls`)
 - Produces: `tests/invariants.sh` and `tests/equivalence.sh`, each exit 0 on pass, non-zero with a message on failure, run from the repo root with no arguments.
 
 - [ ] **Step 1: Write `tests/equivalence.sh`.** Renders `helm template thread thread --namespace thread` and `kubectl kustomize k8s/otbr` plus `kubectl kustomize k8s/matter-server`, drops the `Namespace` object, and for every object compares `kind`, `metadata.name`, `metadata.namespace`, `.spec` in full (including `.spec.template`), with `yq -o=json | jq -S`. Fails on any difference or on an object present on one side only. Object `metadata` labels and annotations are excluded from the comparison, except the Ingress and PVC annotations, which are compared.
@@ -86,23 +86,23 @@ Not chart work, but the chart starts with all three routers on v0.5.0.
 - Consumes: `tests/invariants.sh` (Task 2), chart directory `thread/`.
 - Produces: a workflow job whose check run is named `lint` (confirmed in Task 4).
 
-- [ ] **Step 1: `lint.yaml`** as in `time_dashboard_k8s`, `paths: ['thread/**', 'tests/**']`, job id `lint`, steps `helm lint thread`, `helm template thread thread --namespace thread`, `tests/invariants.sh` (install `yq` v4 on the runner first). Not `tests/equivalence.sh`: it needs the kustomize files, which Task 7 deletes.
-- [ ] **Step 2: `helm-release.yaml`** as in `time_dashboard_k8s` with `time-dashboard` replaced by `thread`, `paths: ['thread/**']`.
+- [ ] **Step 1: `lint.yaml`** as in the other chart repositories, `paths: ['thread/**', 'tests/**']`, job id `lint`, steps `helm lint thread`, `helm template thread thread --namespace thread`, `tests/invariants.sh` (install `yq` v4 on the runner first). Not `tests/equivalence.sh`: it needs the kustomize files, which Task 7 deletes.
+- [ ] **Step 2: `helm-release.yaml`** as in the other chart repositories with `time-dashboard` replaced by `thread`, `paths: ['thread/**']`.
 - [ ] **Step 3: `renovate.json`** with the global automerge rule and a regex custom manager over `thread/values.yaml`: `matchStrings` `image:\s*(?<depName>[^:\s]+):(?<currentValue>[^@\s]+)@(?<currentDigest>sha256:[a-f0-9]{64})`, `datasourceTemplate: docker`.
 - [ ] **Step 4: Validate.** `actionlint .github/workflows/*.yaml` prints nothing; `npx --yes --package renovate renovate-config-validator renovate.json` ends with `Config validated successfully`.
 - [ ] **Step 5: Commit** `Add chart lint and release workflows and Renovate config`.
 
 ### Task 4: Publish the repository
 
-- [ ] **Step 1: GATE.** The user confirms: create `jvhaarst/matter-thread-esp32c6` as a **public** repository and push `main`. Before asking, show `git ls-files` and grep the tree for `networkkey|pskc|dataset active|BEGIN .*PRIVATE` (expect no hits); `firmware/out/` is ignored.
-- [ ] **Step 2: Create and push.** `gh repo create jvhaarst/matter-thread-esp32c6 --public --source . --push`. Then `gh api -X PATCH repos/jvhaarst/matter-thread-esp32c6 -F allow_auto_merge=true -F delete_branch_on_merge=true` and Pages with `build_type: workflow`.
-- [ ] **Step 3: Get a real check run.** `gh workflow run lint.yaml`, wait for completion, then `gh api repos/jvhaarst/matter-thread-esp32c6/commits/<sha>/check-runs | jq -r '.check_runs[].name'`. Expected: `lint`, conclusion `success`.
-- [ ] **Step 4: Ruleset** `main protection` with the exact settings under Global Constraints, check context from Step 3. Verify with `gh api repos/jvhaarst/matter-thread-esp32c6/rulesets/<id>`.
-- [ ] **Step 5: Release.** `gh workflow run helm-release.yaml`; then `curl -s https://jvhaarst.github.io/matter-thread-esp32c6/index.yaml | yq '.entries.thread[0].version'` prints `0.1.<run_number>`.
+- [ ] **Step 1: GATE.** The user confirms: create `<owner>/matter-thread-esp32c6` as a **public** repository and push `main`. Before asking, show `git ls-files` and grep the tree for `networkkey|pskc|dataset active|BEGIN .*PRIVATE` (expect no hits); `firmware/out/` is ignored.
+- [ ] **Step 2: Create and push.** `gh repo create <owner>/matter-thread-esp32c6 --public --source . --push`. Then `gh api -X PATCH repos/<owner>/matter-thread-esp32c6 -F allow_auto_merge=true -F delete_branch_on_merge=true` and Pages with `build_type: workflow`.
+- [ ] **Step 3: Get a real check run.** `gh workflow run lint.yaml`, wait for completion, then `gh api repos/<owner>/matter-thread-esp32c6/commits/<sha>/check-runs | jq -r '.check_runs[].name'`. Expected: `lint`, conclusion `success`.
+- [ ] **Step 4: Ruleset** `main protection` with the exact settings under Global Constraints, check context from Step 3. Verify with `gh api repos/<owner>/matter-thread-esp32c6/rulesets/<id>`.
+- [ ] **Step 5: Release.** `gh workflow run helm-release.yaml`; then `curl -s https://<owner>.github.io/matter-thread-esp32c6/index.yaml | yq '.entries.thread[0].version'` prints `0.1.<run_number>`.
 
 ### Task 5: Rancher chart repository
 
-- [ ] **Step 1: GATE, then apply** a `catalog.cattle.io/v1` `ClusterRepo` named `thread` with `spec.url: https://jvhaarst.github.io/matter-thread-esp32c6`. Keep its manifest in `k8s/rancher-clusterrepo.yaml`.
+- [ ] **Step 1: GATE, then apply** a `catalog.cattle.io/v1` `ClusterRepo` named `thread` with `spec.url: https://<owner>.github.io/matter-thread-esp32c6`. Keep its manifest in `k8s/rancher-clusterrepo.yaml`.
 - [ ] **Step 2: Verify.** `kubectl get clusterrepo thread -o json | jq '.status.conditions'` shows `Downloaded` `True`. The user sees chart `thread` under Apps → Charts.
 - [ ] **Step 3: Commit** `Rancher chart repository for the thread chart`.
 
@@ -113,7 +113,7 @@ Not chart work, but the chart starts with all three routers on v0.5.0.
 - [ ] **Step 3: GATE.** Show the diff and the commands of Step 4.
 - [ ] **Step 4: Add ownership metadata** to the seven objects (four Deployments, Service, PVC, Ingress): label `app.kubernetes.io/managed-by=Helm`, annotations `meta.helm.sh/release-name=thread` and `meta.helm.sh/release-namespace=thread`. Pod start times unchanged afterwards.
 - [ ] **Step 5: The user installs** in Rancher: Apps → Charts → `thread` → Install, namespace `thread`, name `thread`, default values.
-- [ ] **Step 6: Verify.** `helm list -n thread` shows `thread` `deployed` revision 1; `helm get metadata thread -n thread` shows `catalog.cattle.io/ui-source-repo: thread`; pod names and start times equal the baseline; three border routers back in partition `370331428`; Matter nodes 1 to 5 available; `https://matter.vanhaarst.net` 200 from the LAN, 403 from `vpn.vanhaarst.net`. If the install failed: confirm with `helm list` and pod ages that nothing changed, report the error.
+- [ ] **Step 6: Verify.** `helm list -n thread` shows `thread` `deployed` revision 1; `helm get metadata thread -n thread` shows `catalog.cattle.io/ui-source-repo: thread`; pod names and start times equal the baseline; three border routers back in partition `370331428`; Matter nodes 1 to 5 available; `https://the dashboard host name` 200 from the LAN, 403 from `an outside host`. If the install failed: confirm with `helm list` and pod ages that nothing changed, report the error.
 
 ### Task 7: Remove the kustomize path, update the documents
 

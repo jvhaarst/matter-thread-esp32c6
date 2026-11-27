@@ -19,14 +19,14 @@ On every node: `net.ipv6.conf.<uplink>.accept_ra = 0`, `accept_ra_rt_info_max_pl
 `cdc-acm` module is available on all four Pis. WiFi is down on all Pis.
 
 Although the kernel ignores router advertisements, the nodes do learn routes from Route
-Information Options: each has `2001:4c3c:3d00:700::/56 via fe80::de15:c8ff:fe58:be0 proto ra`.
+Information Options: each has the provider's `/56` `via` the router's link-local address, `proto ra`.
 The network manager installs them in userspace. That is why
 `accept_ra_rt_info_max_plen` is not part of this project.
 
 ## LAN
 
 - IPv4 `192.168.0.0/24`, router `192.168.0.1` (FritzBox).
-- IPv6 by SLAAC: global `2001:4c3c:3d00:700::/64` and unique-local `fdfd:1cb8:52e7::/64`.
+- IPv6 by SLAAC: a provider-assigned global `/64` and a unique-local `/64`.
 
 ## Home Assistant
 

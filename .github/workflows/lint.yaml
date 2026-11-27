@@ -33,3 +33,9 @@ jobs:
 
       - name: Invariants
         run: tests/invariants.sh
+
+      - name: Radio wrapper
+        run: tests/link-radio.sh
+
+      - name: Radio probe
+        run: python3 -I tests/probe-radio-test.py

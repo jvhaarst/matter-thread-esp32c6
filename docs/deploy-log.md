@@ -205,13 +205,13 @@ The Helm diff was those two lines in the StatefulSet and nothing else.
 
 **It took the web UI down for about three minutes.** With host networking, Traefik reaches
 Home Assistant from a node's LAN address, and Home Assistant refused it as an untrusted
-proxy: every request through `ha.vanhaarst.net` answered 400. I had predicted that and added
+proxy: every request through Home Assistant's public name answered 400. I had predicted that and added
 the node addresses to `http.trusted_proxies` in `configuration.yaml` first, but Home
 Assistant no longer reads that block; its HTTP settings live in `/config/.storage/http`.
 Adding the addresses there and restarting the pod fixed it. The full account is in
 `upgrade_nodes/k3s/home-assistant/README.md`.
 
-Checked afterwards: 30 of 30 requests from `vpn.vanhaarst.net` and 30 of 30 from the LAN
+Checked afterwards: 30 of 30 requests from an outside host and 30 of 30 from the LAN
 answer 200; port 8123 is not reachable from outside; no untrusted-proxy lines since the
 restart; the pod resolves `matter-server.thread.svc.cluster.local` and reaches the OTBR REST
 API. Not checked by me: that the Thread panel now lists the border routers, which needs a
@@ -287,15 +287,15 @@ Other results since the 16th:
 - **`raspi-k3s` rebooted on 20 Nov** (not by me). Its border router came back without help:
   started 14:51, rejoined as child, router again two minutes later, same partition.
 
-## 2026-11-26: https://matter.vanhaarst.net
+## 2026-11-26: the Matter dashboard under its own name
 
 Ingress `matter-server` in `thread`, middleware `lan-only@file`, certificate from
 `letsencrypt-production` (ready in 30 s), and `PRODUCTION_MODE=true` on the Matter server so
 its dashboard connects to the WebSocket at the URL it was loaded from. No login, by the user's
-choice. `lan-only` also admits `137.224.0.0/16`, which is not the home LAN; accepted.
+choice. `lan-only` also admits one external /16 range, which is not the home LAN; accepted.
 
 Checked: from the LAN the page answers 200 with a valid certificate and `wss://.../ws`
-connects; from `vpn.vanhaarst.net` the page answers 403 and port 5580 is closed. The Matter
+connects; from an outside host the page answers 403 and port 5580 is closed. The Matter
 server restarted for the env change: all five powered devices available again, Home Assistant
 reconnected.
 
@@ -333,7 +333,7 @@ The backup `/var/lib/otbr.bak-20261126` on `raspi-k3s2` is still there; it can b
 
 ## 2026-11-27: the Thread workloads are a Rancher App
 
-Chart `thread` 0.1.2 from `https://jvhaarst.github.io/matter-thread-esp32c6`, installed by the
+Chart `thread` 0.1.2 from this repository's GitHub Pages site, installed by the
 user from Rancher as release `thread` in namespace `thread`, revision 1, 20:43 UTC. Before
 that, the seven running objects were given Helm's ownership label and annotations, so the
 install adopted them: the four Deployments, and the Matter server's Service, PVC and Ingress.
@@ -342,7 +342,7 @@ Checked afterwards: every pod has the start time and restart count it had before
 objects equal the release manifest; the PVC is the same volume
 (`pvc-9a389fca-95e9-4f19-bf46-dfdbcac3c023`) and now carries `helm.sh/resource-policy: keep`;
 the three border routers are leader and routers on partition `370331428`; Matter nodes 1 to 5
-are available; `https://matter.vanhaarst.net` answers 200 from the LAN and 403 from outside.
+are available; the dashboard's name answers 200 from the LAN and 403 from outside.
 
 ## 2026-11-27: field ownership handed to Helm
 
@@ -360,5 +360,24 @@ Chart 0.1.4 (PR #3) selects the Matter server's node by the label `thread-br=tru
 the host names copied from Home Assistant. The user upgraded the App to it (release revision
 2). The Matter server restarted once and landed on `raspi-k3s`, the Pi with the most free
 memory; its Longhorn volume attached there, and it reaches the Thread network through that
-node's own `wpan0`. Through `wss://matter.vanhaarst.net/ws`, which followed the pod: nodes 1 to
+node's own `wpan0`. Through the dashboard's WebSocket under its public name, which followed the pod: nodes 1 to
 5 available; Home Assistant reconnected. No border router restarted.
+
+## 2026-11-27: radio wrapper proven in the OTBR image
+
+Before moving the border routers to a DaemonSet, the new container command
+(`thread/files/link-radio.sh`) ran in two throwaway pods with the real image
+`hass-otbr-docker:v0.5.0`, unprivileged, with a fake by-id directory:
+
+- one fake radio: `link-radio: radio usb-Espressif_USB_JTAG_serial_debug_unit_TEST-if00 linked to
+  /dev/ttyOTBR`, then s6-overlay started (`preinit`, `s6-rc: info: service ...`, the banner), so
+  `/init` runs fine behind the wrapper;
+- no radio: `link-radio: expected exactly one radio matching
+  usb-Espressif_USB_JTAG_serial_debug_unit_*-if00 in /dev/serial/by-id, found 0`, exit 1, no s6.
+
+Pods and ConfigMap deleted afterwards.
+
+The same check with the Spinel probe added, in one throwaway pod on the same image
+(Python 3.13.5): the probe's own tests against a fake radio on a pseudo-terminal passed, and
+the wrapper refused a by-id entry that does not answer: `found 1 candidate, 0 answered`.
+Pod and ConfigMap deleted.

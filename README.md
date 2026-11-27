@@ -18,7 +18,7 @@ Studio XIAO ESP32-C6 boards running OpenThread RCP firmware, plugged into the Pi
 
 The border routers and the Matter server are the Rancher App `thread` (namespace `thread`),
 installed from the chart in [`thread/`](thread/). A merge to `main` that touches `thread/`
-publishes a new chart version to `https://jvhaarst.github.io/matter-thread-esp32c6`;
+publishes a new chart version to this repository's GitHub Pages site;
 upgrading the running App is then a click in Rancher (Apps, Installed Apps, `thread`,
 Upgrade). Renovate keeps the image digests in `thread/values.yaml` current.
 
