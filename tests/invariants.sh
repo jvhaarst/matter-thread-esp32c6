@@ -69,6 +69,31 @@ images() { jq -r '[.[] | select(.kind == "Deployment") | "\(.metadata.name)=\(.s
 changed="$(diff <(images "$tmp/default.json") <(images "$tmp/canary.json") | grep '^>' | cut -d' ' -f2 || true)"
 [ "$changed" = "otbr-raspi-k3s2=$canary" ] || fail "a per-router image for raspi-k3s2 changed: ${changed:-nothing}"
 
+# A new chart version must not change any pod template: a difference there restarts every
+# border router and the Matter server on each App upgrade, even when nothing else changed.
+helm package thread -d "$tmp/v1" --version 0.0.1 > /dev/null
+helm package thread -d "$tmp/v2" --version 0.0.2 > /dev/null
+templates() {
+    helm template thread "$1" --namespace thread | yq -o=json -I=0 'select(.kind == "Deployment")' \
+        | jq -cS '{(.metadata.name): .spec.template}' | jq -sS 'add'
+}
+diff <(templates "$tmp/v1/thread-0.0.1.tgz") <(templates "$tmp/v2/thread-0.0.2.tgz") > "$tmp/template-drift" \
+    || fail "pod templates change with the chart version: $(grep -c '^[<>]' "$tmp/template-drift") lines differ"
+
+# radioMac is written as /dev/serial/by-id shows it, in upper case; a lower-case value must
+# still open the right device, and a missing one must stop the render instead of producing
+# a path that cannot exist.
+yq '(.borderRouters[] | select(.node == "raspi5") | .radioMac) = "90:64:9b:ab:3f:98"' thread/values.yaml > "$tmp/lower-values.yaml"
+render -f "$tmp/lower-values.yaml" > "$tmp/lower.json"
+dev="$(jq -r '.[] | select(.kind == "Deployment" and .metadata.name == "otbr-raspi5")
+              | .spec.template.spec.containers[0].env[] | select(.name == "DEVICE") | .value' "$tmp/lower.json")"
+[ "$dev" = "/dev/serial/by-id/usb-Espressif_USB_JTAG_serial_debug_unit_90:64:9B:AB:3F:98-if00" ] \
+    || fail "a lower-case radioMac renders $dev"
+yq 'del(.borderRouters[] | select(.node == "raspi5") | .radioMac)' thread/values.yaml > "$tmp/nomac-values.yaml"
+if helm template thread thread --namespace thread -f "$tmp/nomac-values.yaml" > /dev/null 2>&1; then
+    fail "a border router without radioMac renders anyway"
+fi
+
 if [ "$failures" -gt 0 ]; then
     echo "$failures invariant(s) failed" >&2
     exit 1

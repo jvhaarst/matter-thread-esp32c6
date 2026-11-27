@@ -45,8 +45,10 @@ down.
 
 ## Border router
 
-- Image `ghcr.io/ownbee/hass-otbr-docker` v0.4.0, pinned by digest. It repackages the Home
-  Assistant OTBR add-on (3.3.0), so the REST API is the one Home Assistant is tested against.
+- Image `ghcr.io/ownbee/hass-otbr-docker`, pinned by tag and digest in `thread/values.yaml`
+  and kept current by Renovate (v0.5.0 on the Home Assistant OTBR app 3.4.0 since 2026-11-27;
+  v0.4.0 on add-on 3.3.0 before). It repackages the Home Assistant OTBR app, so the REST API is
+  the one Home Assistant is tested against.
 - (Since 2026-11-27 the Deployments come from the Helm chart in `thread/`, installed as a
   Rancher App; the per-node overlays became entries in `borderRouters`.)
 - One Deployment per node: a kustomize base plus one overlay per node. Each radio's

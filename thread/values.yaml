@@ -43,7 +43,9 @@ matterServer:
     thread-br: "true"
   # The Matter fabric: keys and the list of commissioned devices. Losing it means every
   # device has to be factory-reset and commissioned again. The claim is kept when the release
-  # is uninstalled.
+  # is uninstalled. A PVC's storage class cannot change and its size can only grow (and only
+  # where the class allows expansion): changing either here makes the App upgrade fail, without
+  # touching the data.
   storage:
     size: 1Gi
     storageClass: longhorn
