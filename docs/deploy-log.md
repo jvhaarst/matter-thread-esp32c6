@@ -362,3 +362,17 @@ the host names copied from Home Assistant. The user upgraded the App to it (rele
 memory; its Longhorn volume attached there, and it reaches the Thread network through that
 node's own `wpan0`. Through `wss://matter.vanhaarst.net/ws`, which followed the pod: nodes 1 to
 5 available; Home Assistant reconnected. No border router restarted.
+
+## 2026-11-27: radio wrapper proven in the OTBR image
+
+Before moving the border routers to a DaemonSet, the new container command
+(`thread/files/link-radio.sh`) ran in two throwaway pods with the real image
+`hass-otbr-docker:v0.5.0`, unprivileged, with a fake by-id directory:
+
+- one fake radio: `link-radio: radio usb-Espressif_USB_JTAG_serial_debug_unit_TEST-if00 linked to
+  /dev/ttyOTBR`, then s6-overlay started (`preinit`, `s6-rc: info: service ...`, the banner), so
+  `/init` runs fine behind the wrapper;
+- no radio: `link-radio: expected exactly one radio matching
+  usb-Espressif_USB_JTAG_serial_debug_unit_*-if00 in /dev/serial/by-id, found 0`, exit 1, no s6.
+
+Pods and ConfigMap deleted afterwards.
