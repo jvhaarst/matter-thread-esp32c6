@@ -343,3 +343,13 @@ objects equal the release manifest; the PVC is the same volume
 (`pvc-9a389fca-95e9-4f19-bf46-dfdbcac3c023`) and now carries `helm.sh/resource-policy: keep`;
 the three border routers are leader and routers on partition `370331428`; Matter nodes 1 to 5
 are available; `https://matter.vanhaarst.net` answers 200 from the LAN and 403 from outside.
+
+## 2026-11-27: field ownership handed to Helm
+
+The objects had been applied server-side by the field manager `kubernetes-mcp-server` before
+Helm adopted them, so both managers owned every spec field. Helm 4 applies server-side without
+forcing conflicts, so the first upgrade that changed a value (an image bump from Rancher) would
+have failed with a conflict. Every field `kubernetes-mcp-server` owned was also owned by `helm`
+(checked per object), so its `managedFields` entry was removed from each of the seven objects
+with a JSON patch guarded by a `test` operation. Generations and pods unchanged; a server-side
+dry run as `helm` shows no conflict. From now on these objects are changed only through the App.
