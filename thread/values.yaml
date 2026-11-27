@@ -57,7 +57,7 @@ matterServer:
       memory: 1Gi
   # The dashboard under a name that follows the pod. lan-only@file is the allowlist the
   # Traefik allowlist updater maintains: the LAN, the pod and service networks, the home WAN
-  # address (where LAN clients appear from through the public name), and 137.224.0.0/16.
+  # address (where LAN clients appear from through the public name), and one external range.
   # There is no login: anyone it admits can add and remove devices.
   ingress:
     enabled: true

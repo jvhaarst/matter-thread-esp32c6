@@ -83,7 +83,7 @@ How to read it:
 
 ## Which router each device uses
 
-The Matter server's own dashboard has it: https://matter.vanhaarst.net, then Network, then
+The Matter server's own dashboard has it: the name set in `matterServer.ingress.host`, then Network, then
 Thread. The name follows the pod; it is limited to `lan-only@file` and has no login (so
 anyone it admits can add and remove devices). Without Traefik: `http://<node>:5580` on
 whichever node runs `matter-server`. It draws devices,
