@@ -157,9 +157,8 @@ ssh raspi5.local ip -6 route show fd59:2881:fdab:1::/64
 ```
 
 If no route appears within a few minutes, pin the Matter server to `raspi-k3s2` or
-`mini-k3s` by changing the node affinity in
-[`../k8s/matter-server/deployment.yaml`](../k8s/matter-server/deployment.yaml)
-(`mini-k3s` uses `eno1`, so `PRIMARY_INTERFACE` changes with it). Upgrading the two
+`mini-k3s` with `matterServer.nodes` in [`../thread/values.yaml`](../thread/values.yaml)
+(`mini-k3s` uses `eno1`, so `matterServer.primaryInterface` changes with it). Upgrading the two
 Debian 12 nodes to Debian 13 would fix it at the root.
 
 ## Open questions
@@ -190,8 +189,8 @@ Checked 2026-11-26.
 |---|---|---|
 | ESP-IDF driver fix for false USB disconnects (esp-idf#18490) | merged to master on 2026-11-10 as `3c68628dcb`, the same fix as patch 0001 plus a chip-revision guard; **not in any release**, not on `release/v6.1`; latest release still v6.1.1 | when a release contains `3c68628dcb`: drop patch 0001, bump ESP-IDF, rebuild, reflash, cold-start test |
 | The OpenThread port defects (byte-wise TX that drops data, fatal `EIO` on read; esp-idf#19343, raised again in #18490 on 2026-11-24) | still in master; Espressif has not said whether it will change the port | keep patch 0002 until that lands |
-| `ownbee/hass-otbr-docker` | **v0.5.0** released 2026-11-23, on app 3.4.0 (OTBR stable v2026.10.0); arm64 and amd64; no environment variables changed; digest `sha256:2f927f06f803c5dd16f97f8aad752c53d92e2c3b1de90fe4273f278fc6cc8206` | upgrade one node first, see below |
-| `matter-js/matterjs-server` | **1.6.1** released 2026-11-25, running since 2026-11-26: matter.js 0.18.1, re-subscribes when a device stops mid-update, events before the first read are no longer lost, graph layout fix; the rest is BLE proxy; digest `sha256:5591f9f65926ca4b13b34cfd9c9888cb9d9ee9f147fe0b04c8e025cbeeee0eb7` | bump the digest in `k8s/matter-server/deployment.yaml`; one restart, about 30 s without Matter |
+| `ownbee/hass-otbr-docker` | **v0.5.0** released 2026-11-23, on app 3.4.0 (OTBR stable v2026.10.0); arm64 and amd64; no environment variables changed; digest `sha256:2f927f06f803c5dd16f97f8aad752c53d92e2c3b1de90fe4273f278fc6cc8206` | done, see below |
+| `matter-js/matterjs-server` | **1.6.1** released 2026-11-25, running since 2026-11-26: matter.js 0.18.1, re-subscribes when a device stops mid-update, events before the first read are no longer lost, graph layout fix; the rest is BLE proxy; digest `sha256:5591f9f65926ca4b13b34cfd9c9888cb9d9ee9f147fe0b04c8e025cbeeee0eb7` | done |
 | NetworkManager | `raspi5`, `raspi-k3s` still Debian 12, NM 1.42.4; `raspi-k3s2` Debian 13, NM 1.52.1 | Debian 13 upgrade of those two, independent of this project |
 
 What OTBR v2026.10.0 changes for this setup: routes to external networks announced by *other*
@@ -201,14 +200,12 @@ the radios, so no reflash is needed. The RCP alert matches message text, not the
 keeps working.
 
 Applied 2026-11-26: Matter server 1.6.1 everywhere, and OTBR container v0.5.0 on
-`raspi-k3s2` only, as a canary. On 2026-11-27 the other two followed; all three run v0.5.0. No device went
-offline. Next: after a day without RCP trouble lines or restarts on `raspi-k3s2`, put v0.5.0
-in `k8s/otbr/base`, drop the override, apply; that restarts `raspi5` and `raspi-k3s`, which
-moves their direct children to another parent for a minute. The backup
-`/var/lib/otbr.bak-20261126` on `raspi-k3s2` can go once all three run v0.5.0.
+`raspi-k3s2` only, as a canary. On 2026-11-27 the other two followed; all three run v0.5.0. No
+device went offline. The backup `/var/lib/otbr.bak-20261126` on `raspi-k3s2` can go.
 
-No Renovate configuration exists for this repository; the image digests and the ESP-IDF
-version are bumped by hand.
+Renovate keeps the image digests in `thread/values.yaml` current and automerges minor, patch
+and digest updates once the `lint` check passes; that publishes a chart version but does not
+upgrade the running App. The ESP-IDF version in `firmware/build.sh` is bumped by hand.
 
 ## Routine jobs
 
@@ -218,14 +215,28 @@ and `uv run --with pyserial firmware/tools/rcp_probe.py /dev/cu.usbmodemXXXX`. T
 runs after a reset, which hides cold-start bugs: after plugging the board into its Pi, check
 that OTBR actually starts.
 
-**Replace a radio.** The new board has another MAC address, so the path in that node's
-overlay under `k8s/otbr/overlays/` changes. Read it with `ls /dev/serial/by-id/` on the node.
-The Thread credentials are in `/var/lib/otbr` on the node and survive the swap.
+**Change anything in the border routers or the Matter server.** Edit
+[`../thread/values.yaml`](../thread/values.yaml), run `helm lint thread && tests/invariants.sh`,
+merge to `main` (a pull request needs the `lint` check), wait for the release workflow, then
+Upgrade the `thread` App in Rancher. Never `kubectl apply` these objects any more: Helm owns
+them, and the next upgrade would undo a hand change.
 
-**Add a border router.** Copy an overlay, set node name and radio path, add it to
-`k8s/otbr/kustomization.yaml`, install `nodes/60-otbr.conf` as `/etc/sysctl.d/60-otbr.conf`
-on the node, label it `thread-br=true`, apply, then add the URL in Home Assistant as another
-OpenThread Border Router. Raise the "4" in the pods-ready alert and in the dashboard.
+**Upgrade an image.** Renovate opens the pull request. To try a new border-router image on one
+node first, set `image:` on that entry of `borderRouters` and upgrade the App; once it has run a
+day, move it to `otbr.image` and remove the per-router line.
+
+**Replace a radio.** The new board has another MAC address: change that entry's `radioMac` in
+`thread/values.yaml` to what `ls /dev/serial/by-id/` shows on the node. The Thread credentials
+are in `/var/lib/otbr` on the node and survive the swap.
+
+**Add a border router.** Install `nodes/60-otbr.conf` as `/etc/sysctl.d/60-otbr.conf` on the
+node, label it `thread-br=true`, add an entry to `borderRouters`, upgrade the App, then add the
+URL in Home Assistant as another OpenThread Border Router. Raise the "4" in the pods-ready alert
+and in the dashboard, and add the radio to `tests/invariants.sh`.
+
+**Removing the App** deletes the border routers and the Matter server but keeps the PVC
+`matter-server` with the Matter fabric (`helm.sh/resource-policy: keep`); reinstalling
+picks it up again.
 
 **See what a border router thinks.** On the node:
 `sudo k3s crictl exec $(sudo k3s crictl ps --name otbr -q) ot-ctl state`, and likewise

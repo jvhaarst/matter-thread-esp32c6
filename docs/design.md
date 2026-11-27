@@ -47,6 +47,8 @@ down.
 
 - Image `ghcr.io/ownbee/hass-otbr-docker` v0.4.0, pinned by digest. It repackages the Home
   Assistant OTBR add-on (3.3.0), so the REST API is the one Home Assistant is tested against.
+- (Since 2026-11-27 the Deployments come from the Helm chart in `thread/`, installed as a
+  Rancher App; the per-node overlays became entries in `borderRouters`.)
 - One Deployment per node: a kustomize base plus one overlay per node. Each radio's
   `/dev/serial/by-id` path contains its MAC address, so the path differs per node; a
   DaemonSet would need a udev symlink on every node to hide that.

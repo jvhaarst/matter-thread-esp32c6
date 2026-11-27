@@ -1,3 +1,5 @@
+# Namespace for the Rancher App `thread` (chart in ../thread). Not part of the chart: Rancher
+# installs into an existing namespace, and the namespace must outlive the App.
 apiVersion: v1
 kind: Namespace
 metadata:

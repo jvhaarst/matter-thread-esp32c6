@@ -9,8 +9,24 @@ Studio XIAO ESP32-C6 boards running OpenThread RCP firmware, plugged into the Pi
 - [`docs/deploy-log.md`](docs/deploy-log.md): what was applied, in order, and what went wrong.
 - [`followup/README.md`](followup/README.md): what runs, what is still unproven, what to watch.
 - [`firmware/`](firmware/): reproducible RCP firmware build.
-- [`k8s/`](k8s/): border routers, Matter server, Grafana dashboard and alert rules.
+- [`thread/`](thread/): the Helm chart for the border routers and the Matter server.
+- [`k8s/`](k8s/): what is not in the chart: the namespace, the Rancher chart repository, the
+  Grafana dashboard and alert rules.
 - [`nodes/`](nodes/): the sysctl file for border-router nodes.
+
+## Deploying
+
+The border routers and the Matter server are the Rancher App `thread` (namespace `thread`),
+installed from the chart in [`thread/`](thread/). A merge to `main` that touches `thread/`
+publishes a new chart version to `https://jvhaarst.github.io/matter-thread-esp32c6`;
+upgrading the running App is then a click in Rancher (Apps, Installed Apps, `thread`,
+Upgrade). Renovate keeps the image digests in `thread/values.yaml` current.
+
+Before a change to the chart:
+
+```sh
+helm lint thread && tests/invariants.sh
+```
 
 ## Firmware
 
