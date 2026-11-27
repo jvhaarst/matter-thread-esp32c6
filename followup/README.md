@@ -221,9 +221,13 @@ merge to `main` (a pull request needs the `lint` check), wait for the release wo
 Upgrade the `thread` App in Rancher. Never `kubectl apply` these objects any more: Helm owns
 them, and the next upgrade would undo a hand change.
 
-**Upgrade an image.** Renovate opens the pull request. To try a new border-router image on one
-node first, set `image:` on that entry of `borderRouters` and upgrade the App; once it has run a
-day, move it to `otbr.image` and remove the per-router line.
+**Upgrade an image.** Renovate opens the pull request and merges minor, patch and digest updates
+by itself once `lint` passes; that only publishes a chart version. **An App upgrade that changes
+`otbr.image` restarts all three border routers at the same moment** (each Deployment is
+`Recreate`), so the mesh has no border router for those seconds. To try a new border-router
+image on one node first: after Renovate's merge, set `image:` to the *old* image on two of the
+three `borderRouters` entries, merge, upgrade the App (one router restarts), and after a day
+remove those two lines and upgrade again.
 
 **Replace a radio.** The new board has another MAC address: change that entry's `radioMac` in
 `thread/values.yaml` to what `ls /dev/serial/by-id/` shows on the node. The Thread credentials

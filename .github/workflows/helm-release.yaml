@@ -45,19 +45,13 @@ jobs:
           echo "Publishing chart version $NEW_VERSION"
           helm package thread -d .helm-release --version "$NEW_VERSION"
 
-      - name: Download existing index (if exists)
-        continue-on-error: true
-        run: |
-          curl -fsSL https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/index.yaml -o .helm-release/existing-index.yaml
+      # deploy-pages replaces the whole site, so the earlier archives have to be uploaded again
+      # or they disappear while an index would still list them.
+      - name: Collect the published archives
+        run: .github/scripts/collect-published-charts.sh "https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}" .helm-release
 
       - name: Generate Helm repo index
-        run: |
-          cd .helm-release
-          if [ -f existing-index.yaml ]; then
-            helm repo index . --url https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }} --merge existing-index.yaml
-          else
-            helm repo index . --url https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}
-          fi
+        run: helm repo index .helm-release --url "https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}"
 
       - name: Setup Pages
         uses: actions/configure-pages@v6

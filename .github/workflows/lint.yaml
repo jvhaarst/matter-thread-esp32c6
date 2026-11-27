@@ -1,10 +1,9 @@
 name: Lint Helm Chart
 
+# On every pull request, without a paths filter: the ruleset requires the check "lint", and
+# a required check that never runs leaves a pull request waiting forever.
 on:
   pull_request:
-    paths:
-      - 'thread/**'
-      - 'tests/**'
   workflow_dispatch:
 
 permissions:
