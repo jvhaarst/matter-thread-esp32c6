@@ -319,3 +319,14 @@ closing). otbr-agent's lines no longer carry the uptime prefix.
 
 Still to do: if `raspi-k3s2` runs a day without RCP trouble lines or restarts, move the v0.5.0
 image into `k8s/otbr/base` and remove the override, which upgrades `raspi5` and `raspi-k3s`.
+
+## 2026-11-27: all border routers on OTBR container v0.5.0
+
+The canary on `raspi-k3s2` ran from 26 Nov 19:51 to 27 Nov 20:33 UTC with no RCP trouble lines
+and no restarts. `raspi-k3s` (20:35:45) and then `raspi5` (20:36:18) moved to v0.5.0, one at
+a time. Each was back as router or leader within 10 s, all three on partition `370331428`
+running `OPENTHREAD/cb18e0f`, four routers in the table, and Matter nodes 1 to 5 available
+throughout. The two TIMMERFLOTTE sensors that had a border router as parent re-attached
+elsewhere; no border router has a child at the moment.
+
+The backup `/var/lib/otbr.bak-20261126` on `raspi-k3s2` is still there; it can be removed.

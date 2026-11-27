@@ -201,7 +201,7 @@ the radios, so no reflash is needed. The RCP alert matches message text, not the
 keeps working.
 
 Applied 2026-11-26: Matter server 1.6.1 everywhere, and OTBR container v0.5.0 on
-`raspi-k3s2` only, as a canary (override in `k8s/otbr/overlays/raspi-k3s2`). No device went
+`raspi-k3s2` only, as a canary. On 2026-11-27 the other two followed; all three run v0.5.0. No device went
 offline. Next: after a day without RCP trouble lines or restarts on `raspi-k3s2`, put v0.5.0
 in `k8s/otbr/base`, drop the override, apply; that restarts `raspi5` and `raspi-k3s`, which
 moves their direct children to another parent for a minute. The backup

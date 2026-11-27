@@ -29,7 +29,6 @@ borderRouters:
     radioMac: "90:64:9B:AB:3E:78"
   - node: raspi-k3s2
     radioMac: "90:64:9B:AB:40:64"
-    image: ghcr.io/ownbee/hass-otbr-docker:v0.5.0@sha256:2f927f06f803c5dd16f97f8aad752c53d92e2c3b1de90fe4273f278fc6cc8206
 
 matterServer:
   image: ghcr.io/matter-js/matterjs-server:1.6.1@sha256:5591f9f65926ca4b13b34cfd9c9888cb9d9ee9f147fe0b04c8e025cbeeee0eb7

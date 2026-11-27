@@ -29,8 +29,8 @@ spec:
       terminationGracePeriodSeconds: 30
       containers:
         - name: otbr
-          # v0.4.0, built on the Home Assistant OTBR add-on image 3.3.0.
-          image: ghcr.io/ownbee/hass-otbr-docker:v0.4.0@sha256:790f21835c86e0d9b9071f21b042ca77ef0ff70e714e8454903982a00df83cfb
+          # v0.5.0, built on the Home Assistant OTBR app 3.4.0 (OTBR stable v2026.10.0).
+          image: ghcr.io/ownbee/hass-otbr-docker:v0.5.0@sha256:2f927f06f803c5dd16f97f8aad752c53d92e2c3b1de90fe4273f278fc6cc8206
           securityContext:
             # Required, not a convenience: a container may only open a host
             # character device (the radio) when the device cgroup allows it, and
