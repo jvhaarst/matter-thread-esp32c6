@@ -376,3 +376,8 @@ Before moving the border routers to a DaemonSet, the new container command
   usb-Espressif_USB_JTAG_serial_debug_unit_*-if00 in /dev/serial/by-id, found 0`, exit 1, no s6.
 
 Pods and ConfigMap deleted afterwards.
+
+The same check with the Spinel probe added, in one throwaway pod on the same image
+(Python 3.13.5): the probe's own tests against a fake radio on a pseudo-terminal passed, and
+the wrapper refused a by-id entry that does not answer: `found 1 candidate, 0 answered`.
+Pod and ConfigMap deleted.
