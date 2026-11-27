@@ -69,6 +69,17 @@ images() { jq -r '[.[] | select(.kind == "Deployment") | "\(.metadata.name)=\(.s
 changed="$(diff <(images "$tmp/default.json") <(images "$tmp/canary.json") | grep '^>' | cut -d' ' -f2 || true)"
 [ "$changed" = "otbr-raspi-k3s2=$canary" ] || fail "a per-router image for raspi-k3s2 changed: ${changed:-nothing}"
 
+# A new chart version must not change any pod template: a difference there restarts every
+# border router and the Matter server on each App upgrade, even when nothing else changed.
+helm package thread -d "$tmp/v1" --version 0.0.1 > /dev/null
+helm package thread -d "$tmp/v2" --version 0.0.2 > /dev/null
+templates() {
+    helm template thread "$1" --namespace thread | yq -o=json -I=0 'select(.kind == "Deployment")' \
+        | jq -cS '{(.metadata.name): .spec.template}' | jq -sS 'add'
+}
+diff <(templates "$tmp/v1/thread-0.0.1.tgz") <(templates "$tmp/v2/thread-0.0.2.tgz") > "$tmp/template-drift" \
+    || fail "pod templates change with the chart version: $(grep -c '^[<>]' "$tmp/template-drift") lines differ"
+
 # radioMac is written as /dev/serial/by-id shows it, in upper case; a lower-case value must
 # still open the right device, and a missing one must stop the render instead of producing
 # a path that cannot exist.
