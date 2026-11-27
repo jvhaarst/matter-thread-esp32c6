@@ -353,3 +353,12 @@ have failed with a conflict. Every field `kubernetes-mcp-server` owned was also 
 (checked per object), so its `managedFields` entry was removed from each of the seven objects
 with a JSON patch guarded by a `test` operation. Generations and pods unchanged; a server-side
 dry run as `helm` shows no conflict. From now on these objects are changed only through the App.
+
+## 2026-11-27: Matter server on any border-router node
+
+Chart 0.1.4 (PR #3) selects the Matter server's node by the label `thread-br=true` instead of
+the host names copied from Home Assistant. The user upgraded the App to it (release revision
+2). The Matter server restarted once and landed on `raspi-k3s`, the Pi with the most free
+memory; its Longhorn volume attached there, and it reaches the Thread network through that
+node's own `wpan0`. Through `wss://matter.vanhaarst.net/ws`, which followed the pod: nodes 1 to
+5 available; Home Assistant reconnected. No border router restarted.
