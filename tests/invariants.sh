@@ -41,6 +41,11 @@ if [ -n "$m" ]; then
     sel="$(jq -cS '.spec.selector.matchLabels' <<<"$m")"
     [ "$sel" = '{"app.kubernetes.io/name":"matter-server"}' ] || fail "matter-server selector is $sel"
     [ "$(jq -cS '.spec.template.metadata.labels' <<<"$m")" = "$sel" ] || fail "matter-server pod labels differ from its selector"
+    # It runs on a border-router node, where it reaches the Thread network through that
+    # node's own wpan0; the node label, not a list of host names, says which nodes those are.
+    [ "$(jq -cS '.spec.template.spec.nodeSelector' <<<"$m")" = '{"thread-br":"true"}' ] \
+        || fail "matter-server nodeSelector is $(jq -cS '.spec.template.spec.nodeSelector' <<<"$m")"
+    [ "$(jq -c '.spec.template.spec.affinity' <<<"$m")" = null ] || fail "matter-server still has an affinity"
 fi
 
 # The Matter fabric survives an uninstall.
