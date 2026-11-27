@@ -36,10 +36,11 @@ matterServer:
   # Behind Traefik the dashboard cannot tell from the URL that the server itself serves it,
   # and asks for a server address. This makes it use the URL it was loaded from.
   productionMode: true
-  # Same nodes as Home Assistant; both are Raspberry Pis whose uplink is primaryInterface.
-  nodes:
-    - raspi5
-    - raspi-k3s2
+  # Runs on any border-router node (label thread-br=true, the same label the border routers
+  # select on): there it reaches the Thread network through the node's own wpan0, and every
+  # such node is a Raspberry Pi whose uplink is primaryInterface.
+  nodeSelector:
+    thread-br: "true"
   # The Matter fabric: keys and the list of commissioned devices. Losing it means every
   # device has to be factory-reset and commissioned again. The claim is kept when the release
   # is uninstalled.

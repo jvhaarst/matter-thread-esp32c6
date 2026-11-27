@@ -157,7 +157,7 @@ ssh raspi5.local ip -6 route show fd59:2881:fdab:1::/64
 ```
 
 If no route appears within a few minutes, pin the Matter server to `raspi-k3s2` or
-`mini-k3s` with `matterServer.nodes` in [`../thread/values.yaml`](../thread/values.yaml)
+`mini-k3s` with `matterServer.nodeSelector` in [`../thread/values.yaml`](../thread/values.yaml)
 (`mini-k3s` uses `eno1`, so `matterServer.primaryInterface` changes with it). Upgrading the two
 Debian 12 nodes to Debian 13 would fix it at the root.
 

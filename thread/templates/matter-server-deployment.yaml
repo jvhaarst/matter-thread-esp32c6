@@ -22,15 +22,8 @@ spec:
       # Matter uses link-local IPv6 multicast and mDNS, which do not cross the pod network.
       hostNetwork: true
       dnsPolicy: ClusterFirstWithHostNet
-      affinity:
-        nodeAffinity:
-          requiredDuringSchedulingIgnoredDuringExecution:
-            nodeSelectorTerms:
-              - matchExpressions:
-                  - key: kubernetes.io/hostname
-                    operator: In
-                    values:
-                      {{- toYaml .Values.matterServer.nodes | nindent 22 }}
+      nodeSelector:
+        {{- toYaml .Values.matterServer.nodeSelector | nindent 8 }}
       securityContext:
         runAsNonRoot: true
         runAsUser: 1000
