@@ -44,9 +44,11 @@ if [ -n "$d" ]; then
     [ "$(jq -r '.env[] | select(.name == "DEVICE") | .value' <<<"$c")" = /dev/ttyOTBR ] || fail "otbr DEVICE is not /dev/ttyOTBR"
     [ "$(jq -c '.command' <<<"$c")" = '["/opt/thread/link-radio.sh"]' ] || fail "otbr command is $(jq -c '.command' <<<"$c")"
 fi
-# The wrapper the pods run is the tested script, byte for byte.
-diff <(q '.[] | select(.kind == "ConfigMap" and .metadata.name == "otbr-scripts") | .data["link-radio.sh"]') \
-     thread/files/link-radio.sh > /dev/null || fail "ConfigMap otbr-scripts does not carry thread/files/link-radio.sh"
+# The wrapper and the probe the pods run are the tested files, byte for byte.
+for f in link-radio.sh probe-radio.py; do
+    diff <(q ".[] | select(.kind == \"ConfigMap\" and .metadata.name == \"otbr-scripts\") | .data[\"$f\"]") \
+         "thread/files/$f" > /dev/null || fail "ConfigMap otbr-scripts does not carry thread/files/$f"
+done
 m="$(jq -c '.[] | select(.kind == "Deployment" and .metadata.name == "matter-server")' "$tmp/default.json")"
 if [ -n "$m" ]; then
     sel="$(jq -cS '.spec.selector.matchLabels' <<<"$m")"

@@ -1,4 +1,4 @@
-# The border routers' container command; see files/link-radio.sh.
+# The border routers' container command and the radio probe it runs; see files/.
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -10,3 +10,5 @@ metadata:
 data:
   link-radio.sh: |-
     {{- .Files.Get "files/link-radio.sh" | trimSuffix "\n" | nindent 4 }}
+  probe-radio.py: |-
+    {{- .Files.Get "files/probe-radio.py" | trimSuffix "\n" | nindent 4 }}
