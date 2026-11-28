@@ -395,3 +395,20 @@ Each pod probed its node's one matching device, got
 before. Roles leader, router, router on partition `370331428`; the REST API answers on all
 three node addresses; Matter nodes 1 to 5 available; dashboard 200; no Thread or Matter
 warnings in Home Assistant's log.
+
+## 2026-11-28: the rolling update, measured
+
+`kubectl -n thread rollout restart daemonset/otbr` at 08:18:46 UTC, sampled every 5 s (pod
+state, and `/node/state` on each node's REST API). Order and timing:
+
+| Node | Old pod terminating | New pod Ready |
+|---|---|---|
+| `raspi5` | 08:18:46 | 08:18:58 |
+| `raspi-k3s2` | 08:20:01 | 08:20:07 |
+| `raspi-k3s` | 08:21:10 | 08:21:16 |
+
+One node at a time, each next node about 63 s after the previous one was Ready (the 60 s of
+`minReadySeconds` plus the sampling interval). At every sample at least two border routers
+reported `router` or `leader`; the lowest count was 2. The whole rollout took 3.5 minutes.
+No Matter device went offline (no offline event in the Matter server's log); all three back
+on partition `370331428`, `raspi5` leader again.
