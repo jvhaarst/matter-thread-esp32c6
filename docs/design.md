@@ -49,8 +49,11 @@ down.
   and kept current by Renovate (v0.5.0 on the Home Assistant OTBR app 3.4.0 since 2026-11-27;
   v0.4.0 on add-on 3.3.0 before). It repackages the Home Assistant OTBR app, so the REST API is
   the one Home Assistant is tested against.
-- (Since 2026-11-27 the Deployments come from the Helm chart in `thread/`, installed as a
-  Rancher App; the per-node overlays became entries in `borderRouters`.)
+- (Superseded on 2026-11-28: one DaemonSet on every `thread-br=true` node, from the Helm chart
+  in `thread/`, installed as a Rancher App. The objection below no longer holds: each pod finds
+  its node's radio by pattern and a Spinel probe and links it to one fixed path, so no udev rule
+  and no per-node naming is needed, and the DaemonSet's rolling update keeps the other routers up
+  while one restarts. Per-node radio names remain possible as `otbr.radioOverrides`.)
 - One Deployment per node: a kustomize base plus one overlay per node. Each radio's
   `/dev/serial/by-id` path contains its MAC address, so the path differs per node; a
   DaemonSet would need a udev symlink on every node to hide that.
@@ -85,7 +88,7 @@ here. See [`inventory.md`](inventory.md).
 | Choice | Picked | Rejected, and why |
 |---|---|---|
 | OTBR image | `ownbee/hass-otbr-docker` | `openthread/otbr`: no Home Assistant patches, different REST behaviour. Own build of the add-on Dockerfile: more to maintain; the fallback if ownbee stays behind. |
-| Workload | one Deployment per node | DaemonSet: needs a per-node udev rule to give the radios one common path. |
+| Workload | one Deployment per node (until 2026-11-28; now a DaemonSet, see above) | DaemonSet: needs a per-node udev rule to give the radios one common path. |
 | Firmware build | pinned container | Local ESP-IDF install: not reproducible, and a multi-gigabyte toolchain on the workstation. |
 | Radio transport | native USB with patches | UART: the XIAO exposes no USB-UART bridge, so it would need extra hardware per node. |
 

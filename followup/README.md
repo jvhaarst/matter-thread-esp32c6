@@ -6,11 +6,15 @@ this. Written 2026-11-16, the day everything was deployed. The blow-by-blow reco
 
 ## What runs
 
-| Node | Radio (base MAC) | Deployment | REST API |
-|---|---|---|---|
-| `raspi5` | `90:64:9b:ab:3f:98` | `otbr-raspi5` | `http://192.168.0.240:8081` |
-| `raspi-k3s` | `90:64:9b:ab:3e:78` | `otbr-raspi-k3s` | `http://192.168.0.242:8081` |
-| `raspi-k3s2` | `90:64:9b:ab:40:64` | `otbr-raspi-k3s2` | `http://192.168.0.241:8081` |
+The border routers are DaemonSet `otbr`, one pod on every node labelled `thread-br=true`. Each
+pod finds its node's radio itself (the device that matches `otbr.radioPattern` and answers over
+Spinel as an OpenThread radio); its log says which one.
+
+| Node | Radio (base MAC) | REST API |
+|---|---|---|
+| `raspi5` | `90:64:9b:ab:3f:98` | `http://192.168.0.240:8081` |
+| `raspi-k3s` | `90:64:9b:ab:3e:78` | `http://192.168.0.242:8081` |
+| `raspi-k3s2` | `90:64:9b:ab:40:64` | `http://192.168.0.241:8081` |
 
 All in namespace `thread`, together with `matter-server` (Service
 `matter-server.thread.svc.cluster.local:5580`). One Thread network, `ha-thread-fad4`,
@@ -216,28 +220,29 @@ runs after a reset, which hides cold-start bugs: after plugging the board into i
 that OTBR actually starts.
 
 **Change anything in the border routers or the Matter server.** Edit
-[`../thread/values.yaml`](../thread/values.yaml), run `helm lint thread && tests/invariants.sh`,
+[`../thread/values.yaml`](../thread/values.yaml), run `helm lint thread && tests/invariants.sh && tests/link-radio.sh && python3 -I tests/probe-radio-test.py`,
 merge to `main` (a pull request needs the `lint` check), wait for the release workflow, then
 Upgrade the `thread` App in Rancher. Never `kubectl apply` these objects any more: Helm owns
 them, and the next upgrade would undo a hand change.
 
 **Upgrade an image.** Renovate opens the pull request and merges minor, patch and digest updates
-by itself once `lint` passes; that only publishes a chart version. **An App upgrade that changes
-`otbr.image` restarts all three border routers at the same moment** (each Deployment is
-`Recreate`), so the mesh has no border router for those seconds. To try a new border-router
-image on one node first: after Renovate's merge, set `image:` to the *old* image on two of the
-three `borderRouters` entries, merge, upgrade the App (one router restarts), and after a day
-remove those two lines and upgrade again.
+by itself once `lint` passes; that only publishes a chart version. Upgrading the App then
+replaces the border routers **one node at a time**: the next node only after the restarted router
+has been back in the mesh (`ot-ctl state` child, router or leader) for 60 s. Measured on
+2026-11-28: about a minute per node, never fewer than two routers up, no device offline. A
+router that does not come back (bad image, radio gone) halts the rollout at that node, and the
+other routers keep running on the old image; roll back the App in Rancher.
 
-**Replace a radio.** The new board has another MAC address: change that entry's `radioMac` in
-`thread/values.yaml` to what `ls /dev/serial/by-id/` shows on the node, and the same MAC in the
-`mac` table of `tests/invariants.sh`, which checks each router opens its own radio. The Thread credentials
-are in `/var/lib/otbr` on the node and survive the swap.
+**Replace a radio.** Plug the new board in and delete that node's `otbr` pod; the new pod finds
+and probes it. Nothing in the chart changes. The Thread credentials are in `/var/lib/otbr` on the
+node and survive the swap. If a node has two radios, or a radio the pattern does not match, name
+it in `otbr.radioOverrides` (node to by-id name); changing that rolls out node by node.
 
-**Add a border router.** Install `nodes/60-otbr.conf` as `/etc/sysctl.d/60-otbr.conf` on the
-node, label it `thread-br=true`, add an entry to `borderRouters`, upgrade the App, then add the
-URL in Home Assistant as another OpenThread Border Router. Raise the "4" in the pods-ready alert
-and in the dashboard, and add the radio to `tests/invariants.sh`.
+**Add a border router.** Plug a flashed radio into the node, install `nodes/60-otbr.conf` as
+`/etc/sysctl.d/60-otbr.conf` on it, and label it `thread-br=true`; the DaemonSet starts a pod
+there by itself, no chart change and no App upgrade. Then add the node's URL in Home Assistant as
+another OpenThread Border Router, and raise the "4" in the pods-ready alert and in the dashboard.
+The node also becomes eligible for the Matter server.
 
 **Removing the App** deletes the border routers and the Matter server but keeps the PVC
 `matter-server` with the Matter fabric (`helm.sh/resource-policy: keep`); reinstalling

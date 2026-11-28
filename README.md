@@ -25,7 +25,7 @@ Upgrade). Renovate keeps the image digests in `thread/values.yaml` current.
 Before a change to the chart:
 
 ```sh
-helm lint thread && tests/invariants.sh
+helm lint thread && tests/invariants.sh && tests/link-radio.sh && python3 -I tests/probe-radio-test.py
 ```
 
 ## Firmware

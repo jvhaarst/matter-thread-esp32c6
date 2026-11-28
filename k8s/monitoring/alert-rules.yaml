@@ -71,7 +71,7 @@
       annotations:
         summary: Fewer than 4 pods are ready in namespace thread
         description: >-
-          Expected ready: otbr-raspi5, otbr-raspi-k3s, otbr-raspi-k3s2 and matter-server. A border router that cannot open its radio crash-loops; check that the board is plugged in and that /dev/serial/by-id on the node holds a symlink, not a directory.
+          Expected ready: one otbr pod per thread-br node (three) and matter-server. A border router whose radio is missing, silent or not an OpenThread radio fails at start; its log has a "link-radio:" line with each device's answer. Check that the board is plugged in and answers.
       data:
         - refId: A
           datasourceUid: VictoriaMetrics
