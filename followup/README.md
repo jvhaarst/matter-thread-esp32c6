@@ -231,7 +231,14 @@ replaces the border routers **one node at a time**: the next node only after the
 has been back in the mesh (`ot-ctl state` child, router or leader) for 60 s. Measured on
 2026-11-28: about a minute per node, never fewer than two routers up, no device offline. A
 router that does not come back (bad image, radio gone) halts the rollout at that node, and the
-other routers keep running on the old image; roll back the App in Rancher.
+other routers keep running on the old image; roll back the App in Rancher. The readiness check only proves "back in the mesh"; an image that
+joins the mesh but breaks something else (the REST API, TREL) still reaches every node within a
+few minutes.
+
+To try a new image on one node first: set `otbr.updateStrategy: OnDelete` in the App's values and
+upgrade; nothing restarts. Delete one node's `otbr` pod (`kubectl -n thread delete pod <pod>`); its
+replacement runs the new image. When it has run long enough, set `updateStrategy` back to
+`RollingUpdate` and upgrade again: the remaining nodes follow one at a time.
 
 **Replace a radio.** Plug the new board in and delete that node's `otbr` pod; the new pod finds
 and probes it. Nothing in the chart changes. The Thread credentials are in `/var/lib/otbr` on the
@@ -240,9 +247,12 @@ it in `otbr.radioOverrides` (node to by-id name); changing that rolls out node b
 
 **Add a border router.** Plug a flashed radio into the node, install `nodes/60-otbr.conf` as
 `/etc/sysctl.d/60-otbr.conf` on it, and label it `thread-br=true`; the DaemonSet starts a pod
-there by itself, no chart change and no App upgrade. Then add the node's URL in Home Assistant as
-another OpenThread Border Router, and raise the "4" in the pods-ready alert and in the dashboard.
-The node also becomes eligible for the Matter server.
+there by itself, no chart change and no App upgrade. Add the node's URL in Home Assistant as
+another OpenThread Border Router **right away**: until Home Assistant gives it the Thread
+dataset, `ot-ctl state` is `disabled` and the pod stays NotReady. In that window an App upgrade
+stalls at that node (the rollout's one allowed unavailable pod is used up) and Rancher shows the
+upgrade as pending. Then raise the "4" in the pods-ready alert and in the dashboard. The node also
+becomes eligible for the Matter server.
 
 **Removing the App** deletes the border routers and the Matter server but keeps the PVC
 `matter-server` with the Matter fabric (`helm.sh/resource-policy: keep`); reinstalling

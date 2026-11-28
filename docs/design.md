@@ -88,7 +88,7 @@ here. See [`inventory.md`](inventory.md).
 | Choice | Picked | Rejected, and why |
 |---|---|---|
 | OTBR image | `ownbee/hass-otbr-docker` | `openthread/otbr`: no Home Assistant patches, different REST behaviour. Own build of the add-on Dockerfile: more to maintain; the fallback if ownbee stays behind. |
-| Workload | one Deployment per node (until 2026-11-28; now a DaemonSet, see above) | DaemonSet: needs a per-node udev rule to give the radios one common path. |
+| Workload | one DaemonSet on every `thread-br=true` node (since 2026-11-28) | One Deployment per node (used until 2026-11-28): a node and radio named in the chart for every router, and an App upgrade restarted them all at once. The DaemonSet's former drawback, a different radio path per node, is solved by the probing wrapper. |
 | Firmware build | pinned container | Local ESP-IDF install: not reproducible, and a multi-gigabyte toolchain on the workstation. |
 | Radio transport | native USB with patches | UART: the XIAO exposes no USB-UART bridge, so it would need extra hardware per node. |
 
