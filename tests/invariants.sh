@@ -59,6 +59,16 @@ render --set "otbr.radioOverrides.raspi5=$override" > "$tmp/override.json"
 pod_annotations() { jq -cS '.[] | select(.kind == "DaemonSet") | .spec.template.metadata.annotations' "$1"; }
 [ "$(pod_annotations "$tmp/override.json")" != "$(pod_annotations "$tmp/default.json")" ] \
     || fail "a radio override does not change the DaemonSet's pod template, so it would never roll out"
+
+# The same for the scripts the pods run: a changed wrapper or probe must roll out node by node,
+# not wait for whatever restarts a pod next (a power cut restarts all of them at once).
+for f in link-radio.sh probe-radio.py; do
+    rm -rf "$tmp/chart-copy"; cp -R thread "$tmp/chart-copy"
+    printf '\n# changed\n' >> "$tmp/chart-copy/files/$f"
+    helm template thread "$tmp/chart-copy" --namespace thread | yq -o=json -I=0 'select(. != null)' | jq -s . > "$tmp/changed.json"
+    [ "$(pod_annotations "$tmp/changed.json")" != "$(pod_annotations "$tmp/default.json")" ] \
+        || fail "a changed $f does not change the DaemonSet's pod template, so it would never roll out"
+done
 # The wrapper and the probe the pods run are the tested files, byte for byte.
 for f in link-radio.sh probe-radio.py; do
     diff <(q ".[] | select(.kind == \"ConfigMap\" and .metadata.name == \"otbr-scripts\") | .data[\"$f\"]") \

@@ -26,9 +26,11 @@ spec:
   template:
     metadata:
       annotations:
-        # Changes with the radio overrides, so a changed override rolls out node by node; it
-        # does not change with the chart version, so an upgrade alone restarts nothing.
-        thread.otbr/radio-overrides: {{ toJson .Values.otbr.radioOverrides | sha256sum | trunc 16 }}
+        # Changes with the scripts the pods run and with the radio overrides, so either change
+        # rolls out node by node instead of waiting for whatever restarts a pod next. Hashes the
+        # files and values themselves, not the rendered ConfigMap, whose labels carry the chart
+        # version: an upgrade that changes neither restarts nothing.
+        thread.otbr/config: {{ printf "%s\n%s\n%s" (.Files.Get "files/link-radio.sh") (.Files.Get "files/probe-radio.py") (toJson .Values.otbr.radioOverrides) | sha256sum | trunc 16 }}
       labels:
         app.kubernetes.io/name: otbr
     spec:
