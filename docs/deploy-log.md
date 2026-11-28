@@ -381,3 +381,17 @@ The same check with the Spinel probe added, in one throwaway pod on the same ima
 (Python 3.13.5): the probe's own tests against a fake radio on a pseudo-terminal passed, and
 the wrapper refused a by-id entry that does not answer: `found 1 candidate, 0 answered`.
 Pod and ConfigMap deleted.
+
+## 2026-11-28: border routers are one DaemonSet
+
+The user upgraded the App to chart 0.1.6 (release revision 4, values: only Rancher's `global`
+block), 08:14:55 UTC. Helm replaced the three `otbr-<node>` Deployments with DaemonSet `otbr`;
+its three pods started at 08:15:02 on `raspi5`, `raspi-k3s` and `raspi-k3s2`, all Ready, no
+restarts. The Matter server did not restart.
+
+Each pod probed its node's one matching device, got
+`openthread-esp32/051e4c4eb20-43cc05a9b; esp32c6; ... api 11`, and linked it to `/dev/ttyOTBR`:
+`3F:98` on `raspi5`, `3E:78` on `raspi-k3s`, `40:64` on `raspi-k3s2`, the same radios as
+before. Roles leader, router, router on partition `370331428`; the REST API answers on all
+three node addresses; Matter nodes 1 to 5 available; dashboard 200; no Thread or Matter
+warnings in Home Assistant's log.
