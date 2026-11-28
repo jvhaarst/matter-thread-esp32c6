@@ -7,7 +7,8 @@ Exit 0: the device answered with an "openthread..." version and an RCP API versi
 Exit 2: it answered, but not as an OpenThread radio (other firmware on the same chip).
 Exit 1: no answer within the timeout, or the device cannot be opened.
 
-DTR and RTS are kept low: on an ESP32's USB Serial/JTAG port they reset the chip.
+DTR and RTS are dropped together right after open (opening raises both together). Never RTS
+without DTR: on an ESP32's USB Serial/JTAG port that combination resets the chip.
 Standard library only; it runs in the OTBR image before otbr-agent starts.
 """
 import fcntl
@@ -107,9 +108,13 @@ def main():
 
     version = api = None
     try:
-        os.write(fd, bytes([FLAG]))
-        os.write(fd, hdlc(bytes([0x81, 0x02]) + packed_uint(PROP_NCP_VERSION)))
-        os.write(fd, hdlc(bytes([0x82, 0x02]) + packed_uint(PROP_RCP_API_VERSION)))
+        try:
+            os.write(fd, bytes([FLAG]))
+            os.write(fd, hdlc(bytes([0x81, 0x02]) + packed_uint(PROP_NCP_VERSION)))
+            os.write(fd, hdlc(bytes([0x82, 0x02]) + packed_uint(PROP_RCP_API_VERSION)))
+        except OSError as error:
+            print(f"write failed: {error.strerror}")
+            return 1
         raw = b""
         deadline = time.monotonic() + timeout
         while time.monotonic() < deadline and (version is None or api is None):
@@ -117,9 +122,14 @@ def main():
             if not ready:
                 continue
             try:
-                raw += os.read(fd, 512)
-            except OSError:
+                chunk = os.read(fd, 512)
+            except BlockingIOError:
                 continue
+            except OSError:
+                break  # hung up: select keeps reporting ready, so stop instead of spinning
+            if not chunk:
+                break
+            raw += chunk
             for frame in frames(raw):
                 if len(frame) < 3 or frame[1] != 0x06:
                     continue
