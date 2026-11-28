@@ -23,6 +23,12 @@ otbr:
   #   radioOverrides:
   #     raspi5: usb-Espressif_USB_JTAG_serial_debug_unit_90:64:9B:AB:3F:98-if00
   radioOverrides: {}
+  # RollingUpdate: an App upgrade replaces the border routers one node at a time, each next node
+  # only after the previous router has been back in the mesh for a minute.
+  # OnDelete: an App upgrade replaces nothing by itself; delete a node's otbr pod to move that
+  # node to the new version. For trying a new image on one node for a while. Set it back to
+  # RollingUpdate afterwards, which rolls the remaining nodes.
+  updateStrategy: RollingUpdate
   resources:
     requests:
       cpu: 50m

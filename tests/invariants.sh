@@ -60,6 +60,21 @@ pod_annotations() { jq -cS '.[] | select(.kind == "DaemonSet") | .spec.template.
 [ "$(pod_annotations "$tmp/override.json")" != "$(pod_annotations "$tmp/default.json")" ] \
     || fail "a radio override does not change the DaemonSet's pod template, so it would never roll out"
 
+# An override must be a by-id name. A nested value (what --set makes of a dotted node name)
+# would otherwise render as "node map[...]" and silently never match.
+if helm template thread thread --namespace thread --set 'otbr.radioOverrides.raspi5.extra=x' > /dev/null 2>&1; then
+    fail "a radioOverrides value that is not a string renders anyway"
+fi
+
+# For trying a new image on one node: OnDelete stops the DaemonSet from replacing pods by
+# itself; you delete one pod, and later the rest. Anything else than the two strategies fails.
+render --set otbr.updateStrategy=OnDelete > "$tmp/ondelete.json"
+[ "$(jq -cS '.[] | select(.kind == "DaemonSet") | .spec.updateStrategy' "$tmp/ondelete.json")" = '{"type":"OnDelete"}' ] \
+    || fail "otbr.updateStrategy=OnDelete renders $(jq -cS '.[] | select(.kind == "DaemonSet") | .spec.updateStrategy' "$tmp/ondelete.json")"
+if helm template thread thread --namespace thread --set otbr.updateStrategy=Recreate > /dev/null 2>&1; then
+    fail "otbr.updateStrategy=Recreate renders anyway"
+fi
+
 # The same for the scripts the pods run: a changed wrapper or probe must roll out node by node,
 # not wait for whatever restarts a pod next (a power cut restarts all of them at once).
 for f in link-radio.sh probe-radio.py; do
