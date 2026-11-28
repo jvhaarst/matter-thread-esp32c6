@@ -423,3 +423,17 @@ upgrade waited for the whole rollout (`pending-upgrade` until the third node was
 
 The pod template also still carries `kubectl.kubernetes.io/restartedAt` from the rollout test;
 it is owned by kubectl, not Helm, and does nothing.
+
+## 2026-11-28: chart 0.1.8, review minors
+
+The user upgraded the App to 0.1.8 (release revision 6), 14:23:00 UTC. The scripts changed, so
+the checksum rolled the border routers one node at a time: `raspi-k3s` 14:23:06, `raspi5`
+14:24:26, `raspi-k3s2` 14:25:36 UTC, each Ready within 17 s, no restarts. Rancher showed
+`pending-upgrade` until the third node was Ready (140 s after the wait began).
+
+Each pod logged the probe's answer in the new format, then the link:
+`link-radio: usb-Espressif_USB_JTAG_serial_debug_unit_90:64:9B:AB:3E:78-if00: openthread-esp32/051e4c4eb20-43cc05a9b; esp32c6; ... api 11`,
+with `3F:98` on `raspi5` and `40:64` on `raspi-k3s2`. Roles: leader on `raspi5`, router on the
+other two, all on partition `370331428`. The Matter server did not restart and lost no
+subscription during the rollout; `get_nodes` shows nodes 1 to 5 available, 6 and 7 (the
+unplugged plugs) not.
