@@ -412,3 +412,14 @@ One node at a time, each next node about 63 s after the previous one was Ready (
 reported `router` or `leader`; the lowest count was 2. The whole rollout took 3.5 minutes.
 No Matter device went offline (no offline event in the Matter server's log); all three back
 on partition `370331428`, `raspi5` leader again.
+
+## 2026-11-28: chart 0.1.7, scripts in the rollout checksum
+
+The user upgraded the App to 0.1.7 (release revision 5). The pod-template checksum now also
+covers the radio scripts, so the upgrade rolled the border routers as intended, one node at a
+time: `raspi5` 08:53:19, `raspi-k3s` 08:54:29, `raspi-k3s2` 08:55:40 UTC. No pod restarted on
+its own, no Matter device went offline, all three back on partition `370331428`. Rancher's
+upgrade waited for the whole rollout (`pending-upgrade` until the third node was Ready).
+
+The pod template also still carries `kubectl.kubernetes.io/restartedAt` from the rollout test;
+it is owned by kubectl, not Helm, and does nothing.
