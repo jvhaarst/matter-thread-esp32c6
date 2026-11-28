@@ -13,6 +13,9 @@ data:
   # "<node> <by-id name>" per line; see otbr.radioOverrides in values.yaml.
   radio-overrides: |-
     {{- range $node, $radio := .Values.otbr.radioOverrides }}
+    {{- if not (kindIs "string" $radio) }}
+    {{- fail (printf "otbr.radioOverrides.%s must be a /dev/serial/by-id name (a string); a node name with a dot needs --set-json or a values file" $node) }}
+    {{- end }}
     {{ $node }} {{ $radio }}
     {{- end }}
   probe-radio.py: |-

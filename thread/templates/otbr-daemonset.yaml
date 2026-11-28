@@ -17,11 +17,20 @@ spec:
   # Ready (back in the mesh, see the readiness probe) for minReadySeconds, so the network always
   # keeps the other border routers. maxSurge must stay 0: the radio and port 8081 exist once per
   # node, so a second pod on the same node could never start.
+  #
+  # otbr.updateStrategy OnDelete stops the DaemonSet from replacing pods by itself, for trying a
+  # new image on one node first: upgrade, delete one node's otbr pod, watch it, then the others.
   updateStrategy:
+    {{- if eq .Values.otbr.updateStrategy "RollingUpdate" }}
     type: RollingUpdate
     rollingUpdate:
       maxUnavailable: 1
       maxSurge: 0
+    {{- else if eq .Values.otbr.updateStrategy "OnDelete" }}
+    type: OnDelete
+    {{- else }}
+    {{- fail (printf "otbr.updateStrategy must be RollingUpdate or OnDelete, not %q" .Values.otbr.updateStrategy) }}
+    {{- end }}
   minReadySeconds: 60
   template:
     metadata:

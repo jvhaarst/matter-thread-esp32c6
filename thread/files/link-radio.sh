@@ -26,6 +26,9 @@ override=""
 if [ -n "$node" ] && [ -n "$overrides" ] && [ -r "$overrides" ]; then
     override="$(awk -v n="$node" '$1 == n { print $2; exit }' "$overrides")"
 fi
+if [ -z "$override" ] && [ -n "$node" ] && [ -n "$overrides" ] && [ -s "$overrides" ]; then
+    echo "link-radio: no override for $node in $overrides; finding the radio by pattern"
+fi
 if [ -n "$override" ]; then
     echo "link-radio: override for $node: $override"
     if ! [ -e "$dir/$override" ] && ! [ -L "$dir/$override" ]; then
@@ -42,13 +45,16 @@ for entry in "$dir"/$pattern; do
     # A by-id entry is a symlink into /dev; count it even if its target is missing.
     [ -e "$entry" ] || [ -L "$entry" ] || continue
     candidates=$((candidates + 1))
-    if answer="$($probe "$entry" 2>&1)"; then
-        answered=$((answered + 1))
-        found="$entry"
-        echo "link-radio: $(basename "$entry"): $answer"
-    else
-        echo "link-radio: $(basename "$entry"): not an OpenThread radio: $answer"
-    fi
+    status=0
+    answer="$($probe "$entry" 2>&1)" || status=$?
+    case "$status" in
+        0)
+            answered=$((answered + 1))
+            found="$entry"
+            echo "link-radio: $(basename "$entry"): $answer" ;;
+        2)  echo "link-radio: $(basename "$entry"): not an OpenThread radio: $answer" ;;
+        *)  echo "link-radio: $(basename "$entry"): $answer" ;;
+    esac
 done
 if [ "$answered" -ne 1 ]; then
     noun=candidates

@@ -6,6 +6,7 @@ import os
 import subprocess
 import sys
 import threading
+import time
 import tty
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -47,9 +48,15 @@ def frames(raw):
     return out
 
 
-def fake_radio(fd, version, api, stop):
-    """Answer PROP_VALUE_GET for NCP_VERSION (0x02) and RCP_API_VERSION (0xB0, packed as 0xB0 0x01)."""
+def fake_radio(fd, version, api, stop, noise=b"", split=False):
+    """Answer PROP_VALUE_GET for NCP_VERSION (0x02) and RCP_API_VERSION (0xB0, packed as 0xB0 0x01).
+
+    noise is written before the first answer (boot output on the same port); split writes each
+    answer in two parts with a pause, so the probe sees it across reads.
+    """
     buf = b""
+    if noise:
+        os.write(fd, noise)
     while not stop.is_set():
         try:
             buf += os.read(fd, 256)
@@ -59,18 +66,25 @@ def fake_radio(fd, version, api, stop):
             header, command, prop = frame[0], frame[1], frame[2:]
             if command != 0x02:
                 continue
+            reply = None
             if prop == b"\x02" and version is not None:
-                os.write(fd, hdlc(bytes([header, 0x06, 0x02]) + version.encode() + b"\x00"))
+                reply = hdlc(bytes([header, 0x06, 0x02]) + version.encode("latin-1") + b"\x00")
             elif prop == b"\xb0\x01" and api is not None:
-                os.write(fd, hdlc(bytes([header, 0x06, 0xB0, 0x01, api])))
+                reply = hdlc(bytes([header, 0x06, 0xB0, 0x01, api]))
+            if reply and split:
+                os.write(fd, reply[: len(reply) // 2])
+                time.sleep(0.2)
+                os.write(fd, reply[len(reply) // 2:])
+            elif reply:
+                os.write(fd, reply)
         buf = b""
 
 
-def run_probe(version, api):
+def run_probe(version, api, noise=b"", split=False):
     controller, device = os.openpty()
     tty.setraw(controller)
     stop = threading.Event()
-    thread = threading.Thread(target=fake_radio, args=(controller, version, api, stop), daemon=True)
+    thread = threading.Thread(target=fake_radio, args=(controller, version, api, stop, noise, split), daemon=True)
     thread.start()
     try:
         result = subprocess.run(
@@ -107,6 +121,25 @@ check("silent device says so", "no answer" in r.stdout + r.stderr, repr(r.stdout
 
 r = subprocess.run([sys.executable, "-I", PROBE, "/nonexistent/ttyACM9", "1"], capture_output=True, text=True, timeout=10)
 check("missing device", r.returncode == 1, f"exit {r.returncode}, err {r.stderr!r}")
+
+# Boot output before the answers, answers split across reads, and a version string with bytes
+# that HDLC must escape (0x7E, 0x7D).
+r = run_probe("openthread-esp32/~}escaped; esp32c6", 11, noise=b"ESP-ROM:esp32c6\r\nI (24) boot: ESP-IDF\r\n~garbage~", split=True)
+check("noise, split replies, escaped bytes", r.returncode == 0, f"exit {r.returncode}, out {r.stdout!r} err {r.stderr!r}")
+check("escaped bytes decoded", "openthread-esp32/~}escaped" in r.stdout, repr(r.stdout))
+
+# A device that hangs up (unplugged after open): a clean "no answer"/"failed" line and exit 1,
+# no traceback, and no busy loop that runs to the timeout.
+controller, device = os.openpty()
+name = os.ttyname(device)
+os.close(controller)
+started = time.monotonic()
+r = subprocess.run([sys.executable, "-I", PROBE, name, "5"], capture_output=True, text=True, timeout=20)
+elapsed = time.monotonic() - started
+os.close(device)
+check("hung-up device exits 1", r.returncode == 1, f"exit {r.returncode}, out {r.stdout!r} err {r.stderr!r}")
+check("hung-up device: no traceback", "Traceback" not in r.stderr, r.stderr[-300:])
+check("hung-up device: gives up early", elapsed < 3, f"took {elapsed:.1f} s with a 5 s timeout")
 
 if failures:
     print(f"{failures} probe-radio case(s) failed", file=sys.stderr)

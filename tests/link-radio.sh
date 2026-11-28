@@ -15,9 +15,13 @@ radio=usb-Espressif_USB_JTAG_serial_debug_unit_90:64:9B:AB:3F:98-if00
 
 case_dir() { rm -rf "$tmp/case"; mkdir -p "$tmp/case/by-id"; }
 # The probe is stubbed: it answers for device names listed in $tmp/case/answers.
+# Every device it is asked about is logged to $tmp/case/probed. A name listed in
+# $tmp/case/other-firmware answers as another firmware (exit 2).
 cat > "$tmp/probe" <<'STUB'
 #!/bin/sh
+basename "$1" >> "$(dirname "$RADIO_TEST_ANSWERS")/probed"
 grep -qxF "$(basename "$1")" "$RADIO_TEST_ANSWERS" 2>/dev/null && { echo "openthread-esp32/test api 11"; exit 0; }
+grep -qxF "$(basename "$1")" "$(dirname "$RADIO_TEST_ANSWERS")/other-firmware" 2>/dev/null && { echo "ESPHome 2026.11.0 api None"; exit 2; }
 echo "no answer"; exit 1
 STUB
 chmod +x "$tmp/probe"
@@ -61,6 +65,23 @@ grep -q "found 2 candidates, 2 answered" "$tmp/case/out" || fail "two answering 
 # Devices that do not match the pattern are not even probed.
 case_dir; touch "$tmp/case/by-id/$radio" "$tmp/case/by-id/usb-FTDI_FT232R_USB_UART_A1234-if00-port0"; echo "$radio" > "$tmp/case/answers"
 run || fail "radio plus another serial device: exited non-zero: $(cat "$tmp/case/out")"
+! grep -q FTDI "$tmp/case/probed" || fail "radio plus another serial device: the FTDI device was probed"
+
+# The log tells "did not answer" from "answered as other firmware".
+case_dir; touch "$tmp/case/by-id/$radio" "$tmp/case/by-id/$other"; echo "$radio" > "$tmp/case/answers"
+echo "$other" > "$tmp/case/other-firmware"
+run || fail "radio plus other firmware: exited non-zero: $(cat "$tmp/case/out")"
+grep -q "$other: not an OpenThread radio: ESPHome" "$tmp/case/out" || fail "other firmware not reported as such: $(cat "$tmp/case/out")"
+case_dir; touch "$tmp/case/by-id/$radio"
+run || true
+grep -q "$radio: no answer" "$tmp/case/out" || fail "a silent device is not reported as \"no answer\": $(cat "$tmp/case/out")"
+! grep -q "not an OpenThread radio" "$tmp/case/out" || fail "a silent device is reported as other firmware: $(cat "$tmp/case/out")"
+
+# Overrides exist but none for this node: say so, then discover as usual.
+case_dir; touch "$tmp/case/by-id/$radio"; echo "$radio" > "$tmp/case/answers"
+printf 'node-b %s\n' "$other" > "$tmp/case/overrides"
+run || fail "overrides for other nodes only: exited non-zero"
+grep -q "no override for node-a" "$tmp/case/out" || fail "missing \"no override for node-a\": $(cat "$tmp/case/out")"
 
 # An override names this node's radio: it is used even when another radio also answers.
 case_dir; touch "$tmp/case/by-id/$radio" "$tmp/case/by-id/$other"; printf '%s\n%s\n' "$radio" "$other" > "$tmp/case/answers"
